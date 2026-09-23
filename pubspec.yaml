@@ -1,0 +1,44 @@
+name: carnet_adresses_repere
+description: Carnet d'adresses basé sur les points de repère (mémoire L3)
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Backend / base de données
+  supabase_flutter: ^2.5.6
+
+  # Géolocalisation
+  geolocator: ^13.0.1
+  permission_handler: ^11.3.1
+
+  # Carte (OpenStreetMap)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Photos
+  image_picker: ^1.1.2
+
+  # Navigation / état
+  go_router: ^14.2.7
+  flutter_riverpod: ^2.5.1
+
+  # Partage (bouton "Partager" via le système Android)
+  share_plus: ^10.0.2
+
+  # UI utilitaires
+  cupertino_icons: ^1.0.6
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
