@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
@@ -92,7 +93,7 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
       await supabase.from('addresses').insert(address.toInsertJson());
 
       if (mounted) {
-        Navigator.of(context).pop(true); // true = adresse créée avec succès
+        context.pop(true); // true = adresse créée avec succès
       }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
