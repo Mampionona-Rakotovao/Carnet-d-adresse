@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'core/router.dart';
 import 'core/supabase_client.dart';
-import 'features/auth/auth_test_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,16 +13,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: "Carnet d'adresses",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: Colors.teal,
         useMaterial3: true,
       ),
-      // Temporaire : écran de test pour valider la connexion Supabase.
-      // Sera remplacé par le routeur (go_router) une fois l'auth validée.
-      home: const AuthTestScreen(),
+      routerConfig: router,
     );
   }
 }
