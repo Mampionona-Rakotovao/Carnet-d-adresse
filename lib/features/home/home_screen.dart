@@ -93,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final a = addresses[index];
               return Card(
                 child: ListTile(
+                  onTap: () => context.push('/address/${a.id}'),
                   leading: Icon(
                     a.visibility == AddressVisibility.public
                         ? Icons.public

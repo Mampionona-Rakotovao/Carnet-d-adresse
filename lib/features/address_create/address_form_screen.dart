@@ -4,27 +4,48 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
 
-class AddressCreateScreen extends StatefulWidget {
-  const AddressCreateScreen({super.key});
+/// Formulaire unique pour créer OU modifier une adresse.
+/// Si [existingAddress] est fourni, l'écran passe en mode édition
+/// (champs pré-remplis, update au lieu d'insert).
+class AddressFormScreen extends StatefulWidget {
+  final Address? existingAddress;
+
+  const AddressFormScreen({super.key, this.existingAddress});
+
+  bool get isEditMode => existingAddress != null;
 
   @override
-  State<AddressCreateScreen> createState() => _AddressCreateScreenState();
+  State<AddressFormScreen> createState() => _AddressFormScreenState();
 }
 
-class _AddressCreateScreenState extends State<AddressCreateScreen> {
+class _AddressFormScreenState extends State<AddressFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _localityController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _localityController;
 
-  AddressVisibility _visibility = AddressVisibility.private;
-  GpsType _gpsType = GpsType.exact;
-
+  late AddressVisibility _visibility;
+  late GpsType _gpsType;
   double? _latitude;
   double? _longitude;
+
   bool _locatingGps = false;
   bool _saving = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existingAddress;
+    _nameController = TextEditingController(text: existing?.name ?? '');
+    _descriptionController =
+        TextEditingController(text: existing?.description ?? '');
+    _localityController = TextEditingController(text: existing?.locality ?? '');
+    _visibility = existing?.visibility ?? AddressVisibility.private;
+    _gpsType = existing?.gpsType ?? GpsType.exact;
+    _latitude = existing?.latitude;
+    _longitude = existing?.longitude;
+  }
 
   Future<void> _captureGps() async {
     setState(() {
@@ -32,12 +53,9 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
       _errorMessage = null;
     });
     try {
-      // Vérifie que le service de localisation est activé.
       if (!await Geolocator.isLocationServiceEnabled()) {
         throw 'Le GPS est désactivé sur cet appareil.';
       }
-
-      // Gère la permission (RG : le GPS peut être indisponible ou refusé).
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -48,7 +66,6 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
       if (permission == LocationPermission.deniedForever) {
         throw 'Autorisation refusée définitivement. Active-la dans les paramètres.';
       }
-
       final position = await Geolocator.getCurrentPosition();
       setState(() {
         _latitude = position.latitude;
@@ -64,7 +81,7 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_latitude == null || _longitude == null) {
-      setState(() => _errorMessage = 'Capture la position GPS avant d\'enregistrer.');
+      setState(() => _errorMessage = "Capture la position GPS avant d'enregistrer.");
       return;
     }
 
@@ -90,11 +107,16 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
         gpsType: _gpsType,
       );
 
-      await supabase.from('addresses').insert(address.toInsertJson());
-
-      if (mounted) {
-        context.pop(true); // true = adresse créée avec succès
+      if (widget.isEditMode) {
+        await supabase
+            .from('addresses')
+            .update(address.toInsertJson())
+            .eq('id', widget.existingAddress!.id!);
+      } else {
+        await supabase.from('addresses').insert(address.toInsertJson());
       }
+
+      if (mounted) context.pop(true);
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -105,7 +127,9 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvelle adresse')),
+      appBar: AppBar(
+        title: Text(widget.isEditMode ? "Modifier l'adresse" : 'Nouvelle adresse'),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -138,7 +162,6 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
             Text('Type de position', style: Theme.of(context).textTheme.titleSmall),
             RadioListTile<GpsType>(
               title: const Text('Position exacte'),
@@ -157,7 +180,6 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
               onChanged: (v) => setState(() => _gpsType = v!),
             ),
             const SizedBox(height: 8),
-
             OutlinedButton.icon(
               onPressed: _locatingGps ? null : _captureGps,
               icon: _locatingGps
@@ -174,7 +196,6 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
             Text('Visibilité', style: Theme.of(context).textTheme.titleSmall),
             SegmentedButton<AddressVisibility>(
               segments: const [
@@ -193,13 +214,11 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
               onSelectionChanged: (s) => setState(() => _visibility = s.first),
             ),
             const SizedBox(height: 20),
-
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
               ),
-
             FilledButton(
               onPressed: _saving ? null : _save,
               child: _saving
@@ -208,7 +227,7 @@ class _AddressCreateScreenState extends State<AddressCreateScreen> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Enregistrer'),
+                  : Text(widget.isEditMode ? 'Enregistrer les modifications' : 'Enregistrer'),
             ),
           ],
         ),
