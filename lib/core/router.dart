@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'supabase_client.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/address_create/address_create_screen.dart';
 
 /// Transforme le flux d'évènements d'authentification de Supabase
 /// (connexion, déconnexion...) en Listenable, ce que go_router attend
@@ -46,6 +47,10 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/login',
       builder: (context, state) => const AuthScreen(),
+    ),
+    GoRoute(
+      path: '/address/create',
+      builder: (context, state) => const AddressCreateScreen(),
     ),
   ],
 );
