@@ -59,8 +59,17 @@ class _LandmarkFormSheetState extends State<_LandmarkFormSheet> {
 
   Future<String?> _uploadPhotoIfNeeded() async {
     if (_pickedBytes == null) return _existingPhotoUrl;
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}_$_pickedFileName';
+
+    // On ignore le nom d'origine (peut contenir espaces, accents,
+    // apostrophes... refusés par Supabase Storage) et on ne garde
+    // que l'extension, avec un nom généré sûr et unique.
+    final rawExt = (_pickedFileName != null && _pickedFileName!.contains('.'))
+        ? _pickedFileName!.split('.').last.toLowerCase()
+        : 'jpg';
+    final ext = RegExp(r'^[a-z0-9]{1,5}$').hasMatch(rawExt) ? rawExt : 'jpg';
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.$ext';
     final path = '${widget.addressId}/$fileName';
+
     await supabase.storage.from('photos').uploadBinary(path, _pickedBytes!);
     return supabase.storage.from('photos').getPublicUrl(path);
   }
