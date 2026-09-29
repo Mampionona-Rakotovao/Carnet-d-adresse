@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
+import '../../models/landmark.dart';
+import '../../models/route_step.dart';
 import '../address_create/address_form_screen.dart';
+import 'widgets/landmark_form_sheet.dart';
+import 'widgets/route_step_form_sheet.dart';
 
 class AddressDetailScreen extends StatefulWidget {
   final String addressId;
@@ -14,33 +18,60 @@ class AddressDetailScreen extends StatefulWidget {
 }
 
 class _AddressDetailScreenState extends State<AddressDetailScreen> {
-  late Future<Address> _addressFuture;
+  Address? _address;
+  List<Landmark> _landmarks = [];
+  List<RouteStep> _steps = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _addressFuture = _fetchAddress();
+    _loadAll();
   }
 
-  Future<Address> _fetchAddress() async {
-    final row = await supabase
-        .from('addresses')
-        .select()
-        .eq('id', widget.addressId)
-        .single();
-    return Address.fromJson(row);
+  Future<void> _loadAll() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final addressRow = await supabase
+          .from('addresses')
+          .select()
+          .eq('id', widget.addressId)
+          .single();
+
+      final landmarkRows = await supabase
+          .from('landmarks')
+          .select()
+          .eq('address_id', widget.addressId)
+          .order('position_order');
+
+      final stepRows = await supabase
+          .from('route_steps')
+          .select()
+          .eq('address_id', widget.addressId)
+          .order('step_order');
+
+      setState(() {
+        _address = Address.fromJson(addressRow);
+        _landmarks = (landmarkRows as List).map((r) => Landmark.fromJson(r)).toList();
+        _steps = (stepRows as List).map((r) => RouteStep.fromJson(r)).toList();
+      });
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  Future<void> _confirmDelete(Address address) async {
+  Future<bool> _confirm(String title, String message) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer cette adresse ?'),
-        content: Text(
-          'Cette action est irréversible : "${address.name}" et toutes ses '
-          'données associées (repères, étapes, favoris, liens de partage) '
-          'seront supprimés.',
-        ),
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -57,126 +88,228 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         ],
       ),
     );
+    return confirmed ?? false;
+  }
 
-    if (confirmed != true) return;
+  Future<void> _deleteAddress() async {
+    if (!await _confirm(
+      'Supprimer cette adresse ?',
+      'Cette action est irréversible : "${_address!.name}" et toutes ses '
+          'données associées (repères, étapes, favoris, liens de partage) '
+          'seront supprimés.',
+    )) return;
 
     try {
-      // owner_id = auth.uid() est vérifié côté RLS (addresses_delete_own) :
-      // même une requête malveillante ne pourrait pas supprimer l'adresse
-      // d'un autre utilisateur.
-      await supabase.from('addresses').delete().eq('id', address.id!);
-      if (mounted) context.pop(); // retour à la liste, mise à jour via Realtime
+      await supabase.from('addresses').delete().eq('id', _address!.id!);
+      if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la suppression : $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
       }
     }
   }
 
+  Future<void> _deleteLandmark(Landmark l) async {
+    if (!await _confirm('Supprimer ce repère ?', '"${l.name}" sera supprimé.')) return;
+    await supabase.from('landmarks').delete().eq('id', l.id!);
+    _loadAll();
+  }
+
+  Future<void> _deleteStep(RouteStep s) async {
+    if (!await _confirm('Supprimer cette étape ?', 'L\'étape sera supprimée.')) return;
+    await supabase.from('route_steps').delete().eq('id', s.id!);
+    _loadAll();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_error != null) {
+      return Scaffold(body: Center(child: Text('Erreur : $_error')));
+    }
+
+    final address = _address!;
+
     return Scaffold(
-      body: FutureBuilder<Address>(
-        future: _addressFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Erreur : ${snapshot.error}'));
-          }
-
-          final address = snapshot.data!;
-
-          return CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                title: Text(address.name),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    tooltip: 'Modifier',
-                    onPressed: () async {
-                      await context.push<bool>(
-                        '/address/${address.id}/edit',
-                        extra: address,
-                      );
-                      // Le contenu se rafraîchit via Realtime ou en revenant ici ;
-                      // on recharge quand même explicitement par simplicité.
-                      setState(() => _addressFuture = _fetchAddress());
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Supprimer',
-                    onPressed: () => _confirmDelete(address),
-                  ),
-                ],
+      appBar: AppBar(
+        title: Text(address.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'Modifier',
+            onPressed: () async {
+              await context.push<bool>('/address/${address.id}/edit', extra: address);
+              _loadAll();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Supprimer',
+            onPressed: _deleteAddress,
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ---- Infos générales ----
+          Row(
+            children: [
+              Icon(
+                address.visibility == AddressVisibility.public
+                    ? Icons.public
+                    : Icons.lock,
+                size: 18,
               ),
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    Row(
+              const SizedBox(width: 6),
+              Text(address.visibility == AddressVisibility.public ? 'Publique' : 'Privée'),
+              const SizedBox(width: 16),
+              Icon(
+                address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(address.gpsType == GpsType.exact ? 'Position exacte' : "Point d'accès"),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (address.locality != null) ...[
+            Text('Localité', style: Theme.of(context).textTheme.titleSmall),
+            Text(address.locality!),
+            const SizedBox(height: 16),
+          ],
+          if (address.description != null) ...[
+            Text('Description', style: Theme.of(context).textTheme.titleSmall),
+            Text(address.description!),
+            const SizedBox(height: 16),
+          ],
+          Text('Coordonnées GPS', style: Theme.of(context).textTheme.titleSmall),
+          Text('${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
+          const SizedBox(height: 24),
+          const Divider(),
+
+          // ---- Repères ----
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Repères', style: Theme.of(context).textTheme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Ajouter un repère',
+                onPressed: () async {
+                  final ok = await showLandmarkFormSheet(context, addressId: address.id!);
+                  if (ok == true) _loadAll();
+                },
+              ),
+            ],
+          ),
+          if (_landmarks.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Aucun repère pour le moment.', style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ..._landmarks.map((l) => Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
+                      child: l.photoUrl == null ? const Icon(Icons.place) : null,
+                    ),
+                    title: Text(l.name),
+                    subtitle: l.description != null ? Text(l.description!) : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          address.visibility == AddressVisibility.public
-                              ? Icons.public
-                              : Icons.lock,
-                          size: 18,
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 20),
+                          onPressed: () async {
+                            final ok = await showLandmarkFormSheet(
+                              context,
+                              addressId: address.id!,
+                              existing: l,
+                            );
+                            if (ok == true) _loadAll();
+                          },
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          address.visibility == AddressVisibility.public
-                              ? 'Publique'
-                              : 'Privée',
-                        ),
-                        const SizedBox(width: 16),
-                        Icon(
-                          address.gpsType == GpsType.exact
-                              ? Icons.gps_fixed
-                              : Icons.route,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          address.gpsType == GpsType.exact
-                              ? 'Position exacte'
-                              : "Point d'accès",
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          onPressed: () => _deleteLandmark(l),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    if (address.locality != null) ...[
-                      Text('Localité', style: Theme.of(context).textTheme.titleSmall),
-                      Text(address.locality!),
-                      const SizedBox(height: 16),
-                    ],
-                    if (address.description != null) ...[
-                      Text('Description', style: Theme.of(context).textTheme.titleSmall),
-                      Text(address.description!),
-                      const SizedBox(height: 16),
-                    ],
-                    Text('Coordonnées GPS', style: Theme.of(context).textTheme.titleSmall),
-                    Text(
-                      '${address.latitude.toStringAsFixed(6)}, '
-                      '${address.longitude.toStringAsFixed(6)}',
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Repères et étapes : à venir dans une prochaine étape.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ]),
-                ),
+                  ),
+                )),
+
+          const SizedBox(height: 16),
+          const Divider(),
+
+          // ---- Étapes ----
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Étapes du trajet', style: Theme.of(context).textTheme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                tooltip: 'Ajouter une étape',
+                onPressed: () async {
+                  final ok = await showRouteStepFormSheet(
+                    context,
+                    addressId: address.id!,
+                    landmarks: _landmarks,
+                    nextStepOrder: _steps.length + 1,
+                  );
+                  if (ok == true) _loadAll();
+                },
               ),
             ],
-          );
-        },
+          ),
+          if (_steps.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Aucune étape pour le moment.', style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ..._steps.map((s) {
+              final matches = _landmarks.where((l) => l.id == s.landmarkId);
+              final landmark = matches.isEmpty ? null : matches.first;
+              return Card(
+                child: ListTile(
+                  leading: CircleAvatar(child: Text('${s.stepOrder}')),
+                  title: Text(s.instruction),
+                  subtitle: Text([
+                    if (s.distance != null) '${s.distance!.toStringAsFixed(0)} m',
+                    if (s.direction != null) s.direction!,
+                    if (landmark != null) 'Repère : ${landmark.name}',
+                  ].join(' · ')),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        onPressed: () async {
+                          final ok = await showRouteStepFormSheet(
+                            context,
+                            addressId: address.id!,
+                            landmarks: _landmarks,
+                            nextStepOrder: _steps.length + 1,
+                            existing: s,
+                          );
+                          if (ok == true) _loadAll();
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        onPressed: () => _deleteStep(s),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+        ],
       ),
     );
   }
