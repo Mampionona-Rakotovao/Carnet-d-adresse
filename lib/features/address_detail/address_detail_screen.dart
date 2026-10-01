@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
@@ -155,6 +157,18 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (address.photoUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                address.photoUrl!,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           // ---- Infos générales ----
           Row(
             children: [
@@ -188,6 +202,56 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           ],
           Text('Coordonnées GPS', style: Theme.of(context).textTheme.titleSmall),
           Text('${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 220,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: LatLng(address.latitude, address.longitude),
+                  initialZoom: 16,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.carnet_adresses.repere',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: LatLng(address.latitude, address.longitude),
+                        width: 44,
+                        height: 44,
+                        child: Icon(
+                          address.gpsType == GpsType.exact
+                              ? Icons.location_on
+                              : Icons.flag,
+                          color: Colors.red,
+                          size: 38,
+                        ),
+                      ),
+                      // Repères qui ont eux-mêmes des coordonnées GPS (optionnel).
+                      ..._landmarks
+                          .where((l) => l.latitude != null && l.longitude != null)
+                          .map(
+                            (l) => Marker(
+                              point: LatLng(l.latitude!, l.longitude!),
+                              width: 36,
+                              height: 36,
+                              child: const Icon(
+                                Icons.place,
+                                color: Colors.blue,
+                                size: 30,
+                              ),
+                            ),
+                          ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
           const Divider(),
 
