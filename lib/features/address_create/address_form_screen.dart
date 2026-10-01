@@ -110,10 +110,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
 
     try {
       final userId = supabase.auth.currentUser!.id;
-      debugPrint('DEBUG userId = $userId');
-      debugPrint('DEBUG FULL TOKEN = ${supabase.auth.currentSession?.accessToken}');
-      debugPrint('DEBUG session access_token présent = ${supabase.auth.currentSession?.accessToken != null}');
-      debugPrint('DEBUG session expires_at = ${supabase.auth.currentSession?.expiresAt}');
 
       if (widget.isEditMode) {
         // Édition : l'id existe déjà, on peut uploader directement dessous.
