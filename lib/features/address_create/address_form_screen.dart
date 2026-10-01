@@ -1,6 +1,8 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
 
@@ -28,6 +30,9 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   late GpsType _gpsType;
   double? _latitude;
   double? _longitude;
+  Uint8List? _pickedPhotoBytes;
+  String? _pickedPhotoExt;
+  String? _existingPhotoUrl;
 
   bool _locatingGps = false;
   bool _saving = false;
@@ -45,6 +50,19 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     _gpsType = existing?.gpsType ?? GpsType.exact;
     _latitude = existing?.latitude;
     _longitude = existing?.longitude;
+    _existingPhotoUrl = existing?.photoUrl;
+  }
+
+  Future<void> _pickPhoto() async {
+    final picked =
+        await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final rawExt = picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
+    setState(() {
+      _pickedPhotoBytes = bytes;
+      _pickedPhotoExt = RegExp(r'^[a-z0-9]{1,5}$').hasMatch(rawExt) ? rawExt : 'jpg';
+    });
   }
 
   Future<void> _captureGps() async {
@@ -92,28 +110,73 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
 
     try {
       final userId = supabase.auth.currentUser!.id;
-      final address = Address(
-        ownerId: userId,
-        name: _nameController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        locality: _localityController.text.trim().isEmpty
-            ? null
-            : _localityController.text.trim(),
-        visibility: _visibility,
-        latitude: _latitude!,
-        longitude: _longitude!,
-        gpsType: _gpsType,
-      );
+      debugPrint('DEBUG userId = $userId');
+      debugPrint('DEBUG FULL TOKEN = ${supabase.auth.currentSession?.accessToken}');
+      debugPrint('DEBUG session access_token présent = ${supabase.auth.currentSession?.accessToken != null}');
+      debugPrint('DEBUG session expires_at = ${supabase.auth.currentSession?.expiresAt}');
 
       if (widget.isEditMode) {
+        // Édition : l'id existe déjà, on peut uploader directement dessous.
+        final photoUrl = await _uploadPhotoIfNeeded(widget.existingAddress!.id!);
+        final address = Address(
+          ownerId: userId,
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          locality: _localityController.text.trim().isEmpty
+              ? null
+              : _localityController.text.trim(),
+          visibility: _visibility,
+          latitude: _latitude!,
+          longitude: _longitude!,
+          gpsType: _gpsType,
+          photoUrl: photoUrl,
+        );
         await supabase
             .from('addresses')
             .update(address.toInsertJson())
             .eq('id', widget.existingAddress!.id!);
       } else {
-        await supabase.from('addresses').insert(address.toInsertJson());
+        // Création : il faut d'abord insérer pour obtenir l'id généré
+        // par la base, PUIS uploader la photo sous ce dossier, PUIS
+        // mettre à jour la ligne avec l'URL de la photo.
+        final address = Address(
+          ownerId: userId,
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          locality: _localityController.text.trim().isEmpty
+              ? null
+              : _localityController.text.trim(),
+          visibility: _visibility,
+          latitude: _latitude!,
+          longitude: _longitude!,
+          gpsType: _gpsType,
+        );
+
+        final inserted = await supabase
+            .from('addresses')
+            .insert(address.toInsertJson())
+            .select()
+            .single();
+        final newId = inserted['id'] as String;
+
+        if (_pickedPhotoBytes != null) {
+          final photoUrl = await _uploadPhotoIfNeeded(newId);
+          await supabase.from('addresses').update({'photo_url': photoUrl}).eq('id', newId);
+        }
+
+        if (mounted) {
+          // On enchaîne directement sur l'ajout des étapes, dans l'ordre,
+          // au lieu de revenir en arrière.
+          context.pushReplacement(
+            '/address/$newId/steps',
+            extra: _nameController.text.trim(),
+          );
+          return;
+        }
       }
 
       if (mounted) context.pop(true);
@@ -122,6 +185,17 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Upload la photo sélectionnée sous le dossier de l'adresse et
+  /// retourne son URL publique. Retourne l'URL existante si aucune
+  /// nouvelle photo n'a été choisie.
+  Future<String?> _uploadPhotoIfNeeded(String addressId) async {
+    if (_pickedPhotoBytes == null) return _existingPhotoUrl;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.${_pickedPhotoExt ?? 'jpg'}';
+    final path = '$addressId/cover_$fileName';
+    await supabase.storage.from('photos').uploadBinary(path, _pickedPhotoBytes!);
+    return supabase.storage.from('photos').getPublicUrl(path);
   }
 
   @override
@@ -135,6 +209,39 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Text('Photo de couverture', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: _pickPhoto,
+              child: Container(
+                height: 160,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _pickedPhotoBytes != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(_pickedPhotoBytes!, fit: BoxFit.cover, width: double.infinity),
+                      )
+                    : (_existingPhotoUrl != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(_existingPhotoUrl!, fit: BoxFit.cover, width: double.infinity),
+                          )
+                        : const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
+                                SizedBox(height: 4),
+                                Text('Ajouter une photo (optionnel)', style: TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                          )),
+              ),
+            ),
+            const SizedBox(height: 20),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(

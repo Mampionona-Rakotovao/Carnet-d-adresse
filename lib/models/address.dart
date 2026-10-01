@@ -24,6 +24,7 @@ class Address {
   final double latitude;
   final double longitude;
   final GpsType gpsType;
+  final String? photoUrl;
   final DateTime? createdAt;
 
   Address({
@@ -36,6 +37,7 @@ class Address {
     required this.latitude,
     required this.longitude,
     this.gpsType = GpsType.exact,
+    this.photoUrl,
     this.createdAt,
   });
 
@@ -49,6 +51,7 @@ class Address {
         latitude: (json['latitude'] as num).toDouble(),
         longitude: (json['longitude'] as num).toDouble(),
         gpsType: GpsTypeX.fromDb(json['gps_type'] as String),
+        photoUrl: json['photo_url'] as String?,
         createdAt: json['created_at'] != null
             ? DateTime.parse(json['created_at'] as String)
             : null,
@@ -64,5 +67,6 @@ class Address {
         'latitude': latitude,
         'longitude': longitude,
         'gps_type': gpsType.toDb(),
+        'photo_url': photoUrl,
       };
 }

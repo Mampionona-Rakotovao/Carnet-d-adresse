@@ -5,6 +5,7 @@ import 'supabase_client.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/address_create/address_form_screen.dart';
+import '../features/address_create/step_wizard_screen.dart';
 import '../features/address_detail/address_detail_screen.dart';
 import '../models/address.dart';
 
@@ -53,6 +54,13 @@ final GoRouter router = GoRouter(
       path: '/address/:id/edit',
       builder: (context, state) => AddressFormScreen(
         existingAddress: state.extra as Address?,
+      ),
+    ),
+    GoRoute(
+      path: '/address/:id/steps',
+      builder: (context, state) => StepWizardScreen(
+        addressId: state.pathParameters['id']!,
+        addressName: state.extra as String? ?? '',
       ),
     ),
     GoRoute(
