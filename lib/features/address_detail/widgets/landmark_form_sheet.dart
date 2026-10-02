@@ -6,22 +6,35 @@ import '../../../models/landmark.dart';
 
 /// Ouvre un formulaire en bas d'écran pour créer ou modifier un repère.
 /// Retourne true si l'enregistrement a réussi.
+///
+/// [nextPositionOrder] est utilisé uniquement en création : il place le
+/// nouveau repère à la bonne place dans l'ordre du trajet.
 Future<bool?> showLandmarkFormSheet(
   BuildContext context, {
   required String addressId,
   Landmark? existing,
+  int? nextPositionOrder,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _LandmarkFormSheet(addressId: addressId, existing: existing),
+    builder: (_) => _LandmarkFormSheet(
+      addressId: addressId,
+      existing: existing,
+      nextPositionOrder: nextPositionOrder,
+    ),
   );
 }
 
 class _LandmarkFormSheet extends StatefulWidget {
   final String addressId;
   final Landmark? existing;
-  const _LandmarkFormSheet({required this.addressId, this.existing});
+  final int? nextPositionOrder;
+  const _LandmarkFormSheet({
+    required this.addressId,
+    this.existing,
+    this.nextPositionOrder,
+  });
 
   @override
   State<_LandmarkFormSheet> createState() => _LandmarkFormSheetState();
@@ -90,7 +103,8 @@ class _LandmarkFormSheetState extends State<_LandmarkFormSheet> {
             ? null
             : _descriptionController.text.trim(),
         photoUrl: photoUrl,
-        positionOrder: widget.existing?.positionOrder ?? 0,
+        positionOrder:
+            widget.existing?.positionOrder ?? widget.nextPositionOrder ?? 0,
       );
 
       if (widget.existing != null) {
