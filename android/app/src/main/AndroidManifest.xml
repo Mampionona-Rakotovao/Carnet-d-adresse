@@ -1,4 +1,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Supabase + tuiles OpenStreetMap. Présent aussi dans les manifestes
+         debug/profile, mais il doit être déclaré ici pour un build release. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- GPS : "capturer ma position" à la création d'une adresse.
+         FINE est obligatoire : Geolocator.getCurrentPosition() utilise
+         LocationAccuracy.best, qui échoue avec une autorisation "approximative". -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- Photos des adresses et des repères. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Android 13+ : inutile avec le sélecteur de photos système
+         (image_picker y passe par le Photo Picker), utile si permission_handler
+         est utilisé plus tard. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Android 12 et antérieurs uniquement. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+
+    <!-- Capteurs non obligatoires : l'app reste installable sur un appareil
+         sans GPS (l'utilisateur saisit alors les coordonnées à la main). -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <application
         android:label="carnet_adresses_repere"
         android:name="${applicationName}"

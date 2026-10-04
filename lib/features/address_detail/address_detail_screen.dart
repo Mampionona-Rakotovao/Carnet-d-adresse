@@ -248,7 +248,10 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                 children: [
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.carnet_adresses.repere',
+                    // La politique d'usage d'OpenStreetMap exige de
+                    // s'identifier : doit correspondre à l'applicationId
+                    // déclaré dans android/app/build.gradle.kts.
+                    userAgentPackageName: 'com.example.carnet_adresses_repere',
                   ),
                   MarkerLayer(
                     markers: [

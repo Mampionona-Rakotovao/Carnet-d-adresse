@@ -26,6 +26,16 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Permissions : sans ces chaines, iOS termine l'application au moment
+	     de la demande (pas de dialogue, un crash). -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>La position GPS permet d'enregistrer l'adresse que vous êtes en train de décrire, sans avoir à la saisir à la main.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>La caméra permet de photographier la porte ou le repère qui sert à retrouver cette adresse.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>L'accès aux photos permet d'associer une photo à une adresse ou à un repère, pour le reconnaître sur place.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Permet d'enregistrer dans vos photos les images des adresses et des repères.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

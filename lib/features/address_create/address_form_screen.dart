@@ -37,6 +37,9 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   bool _locatingGps = false;
   bool _saving = false;
   String? _errorMessage;
+  /// Vrai si la localisation a été refusée définitivement : le seul moyen de
+  /// la réactiver est de passer par les réglages du téléphone.
+  bool _locationBlocked = false;
 
   @override
   void initState() {
@@ -69,6 +72,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     setState(() {
       _locatingGps = true;
       _errorMessage = null;
+      _locationBlocked = false;
     });
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
@@ -90,10 +94,20 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
         _longitude = position.longitude;
       });
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
+      setState(() {
+        _errorMessage = e.toString();
+        _locationBlocked = e.toString().contains('refusée définitivement');
+      });
     } finally {
       if (mounted) setState(() => _locatingGps = false);
     }
+  }
+
+  /// Ouvre les réglages du téléphone puis retente la capture : c'est le seul
+  /// chemin possible après un refus définitif.
+  Future<void> _openSettingsAndRetry() async {
+    await Geolocator.openAppSettings();
+    await _captureGps();
   }
 
   Future<void> _save() async {
@@ -321,6 +335,15 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+              ),
+            if (_locationBlocked)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Ouvrir les paramètres du téléphone'),
+                  onPressed: _openSettingsAndRetry,
+                ),
               ),
             FilledButton(
               onPressed: _saving ? null : _save,
