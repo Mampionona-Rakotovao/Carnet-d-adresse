@@ -155,6 +155,10 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     }
 
     final address = _address!;
+    // Seul le propriétaire voit les actions de modification. La RLS protège
+    // déjà le serveur, mais l'interface ne doit pas non plus proposer des
+    // actions interdites à un simple visiteur (public ou autorisé en lecture).
+    final isOwner = address.ownerId == supabase.auth.currentUser?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -166,19 +170,21 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
             color: _isFavorite ? Colors.amber : null,
             onPressed: _toggleFavorite,
           ),
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'Modifier',
-            onPressed: () async {
-              await context.push<bool>('/address/${address.id}/edit', extra: address);
-              _loadAll();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Supprimer',
-            onPressed: _deleteAddress,
-          ),
+          if (isOwner) ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              tooltip: 'Modifier',
+              onPressed: () async {
+                await context.push<bool>('/address/${address.id}/edit', extra: address);
+                _loadAll();
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Supprimer',
+              onPressed: _deleteAddress,
+            ),
+          ],
         ],
       ),
       body: ListView(
@@ -287,14 +293,15 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Repères', style: Theme.of(context).textTheme.titleMedium),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                tooltip: 'Ajouter un repère',
-                onPressed: () async {
-                  final ok = await showLandmarkFormSheet(context, addressId: address.id!);
-                  if (ok == true) _loadAll();
-                },
-              ),
+              if (isOwner)
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'Ajouter un repère',
+                  onPressed: () async {
+                    final ok = await showLandmarkFormSheet(context, addressId: address.id!);
+                    if (ok == true) _loadAll();
+                  },
+                ),
             ],
           ),
           if (_landmarks.isEmpty)
@@ -311,26 +318,28 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                     ),
                     title: Text(l.name),
                     subtitle: l.description != null ? Text(l.description!) : null,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          onPressed: () async {
-                            final ok = await showLandmarkFormSheet(
-                              context,
-                              addressId: address.id!,
-                              existing: l,
-                            );
-                            if (ok == true) _loadAll();
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          onPressed: () => _deleteLandmark(l),
-                        ),
-                      ],
-                    ),
+                    trailing: isOwner
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 20),
+                                onPressed: () async {
+                                  final ok = await showLandmarkFormSheet(
+                                    context,
+                                    addressId: address.id!,
+                                    existing: l,
+                                  );
+                                  if (ok == true) _loadAll();
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 20),
+                                onPressed: () => _deleteLandmark(l),
+                              ),
+                            ],
+                          )
+                        : null,
                   ),
                 )),
 
@@ -342,19 +351,20 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Étapes du trajet', style: Theme.of(context).textTheme.titleMedium),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                tooltip: 'Ajouter une étape',
-                onPressed: () async {
-                  final ok = await showRouteStepFormSheet(
-                    context,
-                    addressId: address.id!,
-                    landmarks: _landmarks,
-                    nextStepOrder: _steps.length + 1,
-                  );
-                  if (ok == true) _loadAll();
-                },
-              ),
+              if (isOwner)
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'Ajouter une étape',
+                  onPressed: () async {
+                    final ok = await showRouteStepFormSheet(
+                      context,
+                      addressId: address.id!,
+                      landmarks: _landmarks,
+                      nextStepOrder: _steps.length + 1,
+                    );
+                    if (ok == true) _loadAll();
+                  },
+                ),
             ],
           ),
           if (_steps.isEmpty)
@@ -375,28 +385,30 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                     if (s.direction != null) s.direction!,
                     if (landmark != null) 'Repère : ${landmark.name}',
                   ].join(' · ')),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, size: 20),
-                        onPressed: () async {
-                          final ok = await showRouteStepFormSheet(
-                            context,
-                            addressId: address.id!,
-                            landmarks: _landmarks,
-                            nextStepOrder: _steps.length + 1,
-                            existing: s,
-                          );
-                          if (ok == true) _loadAll();
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
-                        onPressed: () => _deleteStep(s),
-                      ),
-                    ],
-                  ),
+                  trailing: isOwner
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () async {
+                                final ok = await showRouteStepFormSheet(
+                                  context,
+                                  addressId: address.id!,
+                                  landmarks: _landmarks,
+                                  nextStepOrder: _steps.length + 1,
+                                  existing: s,
+                                );
+                                if (ok == true) _loadAll();
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20),
+                              onPressed: () => _deleteStep(s),
+                            ),
+                          ],
+                        )
+                      : null,
                 ),
               );
             }),
