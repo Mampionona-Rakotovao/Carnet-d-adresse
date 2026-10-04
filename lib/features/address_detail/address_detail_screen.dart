@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
@@ -23,6 +24,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   Address? _address;
   List<Landmark> _landmarks = [];
   List<RouteStep> _steps = [];
+  bool _isFavorite = false;
   bool _loading = true;
   String? _error;
 
@@ -56,10 +58,13 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           .eq('address_id', widget.addressId)
           .order('step_order');
 
+      final favorite = await isFavorite(widget.addressId);
+
       setState(() {
         _address = Address.fromJson(addressRow);
         _landmarks = (landmarkRows as List).map((r) => Landmark.fromJson(r)).toList();
         _steps = (stepRows as List).map((r) => RouteStep.fromJson(r)).toList();
+        _isFavorite = favorite;
       });
     } catch (e) {
       setState(() => _error = e.toString());
@@ -124,6 +129,22 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     _loadAll();
   }
 
+  /// Bascule l'étoile : l'icône change immédiatement, l'écriture en base
+  /// suit. En cas d'échec on restaure l'état précédent et on prévient.
+  Future<void> _toggleFavorite() async {
+    final previous = _isFavorite;
+    setState(() => _isFavorite = !previous);
+
+    try {
+      await toggleFavorite(_address!.id!, previous);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFavorite = previous);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -139,6 +160,12 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
       appBar: AppBar(
         title: Text(address.name),
         actions: [
+          IconButton(
+            icon: Icon(_isFavorite ? Icons.star : Icons.star_outline),
+            tooltip: _isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+            color: _isFavorite ? Colors.amber : null,
+            onPressed: _toggleFavorite,
+          ),
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: 'Modifier',

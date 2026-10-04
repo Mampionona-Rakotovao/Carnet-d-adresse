@@ -80,6 +80,16 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Mes adresses'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Rechercher',
+            onPressed: () => context.push('/search'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.star_outline),
+            tooltip: 'Favoris',
+            onPressed: () => context.push('/favorites'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Se déconnecter',
             onPressed: () async {
