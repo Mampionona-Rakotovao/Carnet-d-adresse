@@ -9,6 +9,7 @@ import '../features/address_create/step_wizard_screen.dart';
 import '../features/address_detail/address_detail_screen.dart';
 import '../features/search/search_screen.dart';
 import '../features/favorites/favorites_screen.dart';
+import '../features/share/redeem_share_screen.dart';
 import '../models/address.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -53,6 +54,10 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/favorites',
       builder: (context, state) => const FavoritesScreen(),
+    ),
+    GoRoute(
+      path: '/share/open',
+      builder: (context, state) => const RedeemShareScreen(),
     ),
     // IMPORTANT : /address/create doit être déclaré AVANT /address/:id,
     // sinon go_router pourrait interpréter "create" comme un id.
