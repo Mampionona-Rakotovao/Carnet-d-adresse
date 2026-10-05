@@ -4,6 +4,7 @@ import '../../core/supabase_client.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../address_detail/widgets/landmark_form_sheet.dart';
+import '../../core/theme/app_spacing.dart';
 
 /// Écran affiché juste après la création d'une adresse : guide l'utilisateur
 /// dans l'ordre « repères » puis « étapes du trajet », sans quitter l'écran.
@@ -129,7 +130,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
             child: Row(
               children: [
                 Expanded(
@@ -159,7 +160,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
               child: _page == 0
                   ? FilledButton.icon(
                       onPressed: () => setState(() => _page = 1),
@@ -183,16 +184,16 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
 
   Widget _buildLandmarksPage() {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.form,
       children: [
         Text('Repères', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xxs),
         const Text(
           "Ce sont les points visibles qui mènent vers la destination "
           "(panneau, portail, borne, commerce...).",
           style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.sm),
         FilledButton.tonalIcon(
           onPressed: _addLandmark,
           icon: const Icon(Icons.add_circle_outline),
@@ -200,7 +201,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
             _landmarks.isEmpty ? 'Ajouter un premier repère' : 'Ajouter un repère',
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         if (_landmarks.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
@@ -264,7 +265,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
         Expanded(
           flex: 3,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: AppSpacing.form,
             child: Form(
               key: _formKey,
               child: Column(
@@ -274,7 +275,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
                     'Étape ${_steps.length + 1}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   TextFormField(
                     controller: _instructionController,
                     decoration: const InputDecoration(
@@ -287,7 +288,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
                         ? 'Instruction obligatoire'
                         : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
                       Expanded(
@@ -312,7 +313,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.sm),
                   DropdownButtonFormField<String?>(
                     initialValue: _selectedLandmarkId,
                     decoration: const InputDecoration(
