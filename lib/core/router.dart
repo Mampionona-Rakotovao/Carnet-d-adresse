@@ -11,6 +11,7 @@ import '../features/search/search_screen.dart';
 import '../features/favorites/favorites_screen.dart';
 import '../features/share/redeem_share_screen.dart';
 import '../models/address.dart';
+import 'app_scaffold.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
@@ -40,49 +41,52 @@ final GoRouter router = GoRouter(
   },
   routes: [
     GoRoute(
-      path: '/',
-      builder: (context, state) => const HomeScreen(),
-    ),
-    GoRoute(
       path: '/login',
       builder: (context, state) => const AuthScreen(),
-    ),
-    GoRoute(
-      path: '/search',
-      builder: (context, state) => const SearchScreen(),
-    ),
-    GoRoute(
-      path: '/favorites',
-      builder: (context, state) => const FavoritesScreen(),
     ),
     GoRoute(
       path: '/share/open',
       builder: (context, state) => const RedeemShareScreen(),
     ),
-    // IMPORTANT : /address/create doit être déclaré AVANT /address/:id,
-    // sinon go_router pourrait interpréter "create" comme un id.
-    GoRoute(
-      path: '/address/create',
-      builder: (context, state) => const AddressFormScreen(),
-    ),
-    GoRoute(
-      path: '/address/:id/edit',
-      builder: (context, state) => AddressFormScreen(
-        existingAddress: state.extra as Address?,
-      ),
-    ),
-    GoRoute(
-      path: '/address/:id/steps',
-      builder: (context, state) => StepWizardScreen(
-        addressId: state.pathParameters['id']!,
-        addressName: state.extra as String? ?? '',
-      ),
-    ),
-    GoRoute(
-      path: '/address/:id',
-      builder: (context, state) => AddressDetailScreen(
-        addressId: state.pathParameters['id']!,
-      ),
+    ShellRoute(
+      builder: (context, state, child) => AppScaffold(child: child),
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (context, state) => const SearchScreen(),
+        ),
+        GoRoute(
+          path: '/favorites',
+          builder: (context, state) => const FavoritesScreen(),
+        ),
+        GoRoute(
+          path: '/address/create',
+          builder: (context, state) => const AddressFormScreen(),
+        ),
+        GoRoute(
+          path: '/address/:id/edit',
+          builder: (context, state) => AddressFormScreen(
+            existingAddress: state.extra as Address?,
+          ),
+        ),
+        GoRoute(
+          path: '/address/:id/steps',
+          builder: (context, state) => StepWizardScreen(
+            addressId: state.pathParameters['id']!,
+            addressName: state.extra as String? ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/address/:id',
+          builder: (context, state) => AddressDetailScreen(
+            addressId: state.pathParameters['id']!,
+          ),
+        ),
+      ],
     ),
   ],
 );
