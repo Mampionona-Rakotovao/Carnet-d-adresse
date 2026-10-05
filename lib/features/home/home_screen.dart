@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/app_scaffold.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
@@ -28,134 +29,182 @@ class _HomeScreenState extends State<HomeScreen> {
         .order('created_at', ascending: false);
   }
 
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Se déconnecter ?'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              foregroundColor: Colors.red,
+              backgroundColor: Colors.red.shade50,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await supabase.auth.signOut();
+    }
+  }
+
+  PreferredSizeWidget _appBar() => AppBar(
+        title: const Text('Mes adresses'),
+        // Les deux actions secondaires sont regroupées dans un menu : l'AppBar
+        // garde la place pour le titre au lieu de la partager avec des icônes
+        // de 48 px qui n'apportent rien tant qu'on ne les cherche pas.
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Menu',
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'open_link') {
+                context.push('/share/open');
+              } else if (value == 'logout') {
+                _confirmLogout();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'open_link',
+                child: ListTile(
+                  leading: Icon(Icons.link),
+                  title: Text('Ouvrir un lien'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: ListTile(
+                  leading: Icon(Icons.logout, color: Colors.red),
+                  title: Text(
+                    'Se déconnecter',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes adresses'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.link),
-            tooltip: 'Ouvrir un lien',
-            onPressed: () => context.push('/share/open'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Se déconnecter',
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Se déconnecter ?'),
-                  content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Annuler'),
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _addressesStream,
+      builder: (context, snapshot) {
+        // L'écran est monté une seule fois : le `Scaffold` ne dépend pas de
+        // l'état du flux, seul son `body` change.
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _shell(const AppLoading());
+        }
+
+        if (snapshot.hasError) {
+          return _shell(
+            AppErrorState(
+                error: snapshot.error, onRetry: () => setState(() {})),
+          );
+        }
+
+        final addresses =
+            (snapshot.data ?? []).map((row) => Address.fromJson(row)).toList();
+
+        return _shell(
+          addresses.isEmpty
+              ? AppEmptyState(
+                  icon: Icons.map_outlined,
+                  title: 'Aucune adresse enregistrée',
+                  message:
+                      'Ajoutez votre première adresse pour la retrouver facilement.',
+                  actionLabel: 'Ajouter une adresse',
+                  actionIcon: Icons.add,
+                  onAction: () => context.push('/address/create'),
+                  secondaryAction: Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Text(
+                      'Connecté en tant que ${user?.email ?? "?"}',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
                     ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Text('Se déconnecter'),
+                  ),
+                )
+              : ListView(
+                  // Réserve basse doublée : sans elle, la dernière carte passe
+                  // sous le bouton flottant et devient impossible à toucher.
+                  padding: AppSpacing.list.copyWith(bottom: AppSpacing.xxl * 2),
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Bienvenue !',
+                            style: theme.textTheme.headlineSmall),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          'Retrouvez facilement vos lieux importants',
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: AppSpacing.lg),
+                    SectionHeader(
+                      title: 'Adresses récentes',
+                      icon: Icons.access_time_outlined,
+                      trailing: TextButton(
+                        // `go` et non `push` : /search est un onglet du shell,
+                        // le pousser y empilerait une seconde barre de navigation.
+                        onPressed: () => context.go('/search'),
+                        child: const Text('Rechercher'),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ...List.generate(addresses.length, (index) {
+                      final a = addresses[index];
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom:
+                              index < addresses.length - 1 ? AppSpacing.sm : 0,
+                        ),
+                        child: _AddressCard(address: a),
+                      );
+                    }),
                   ],
                 ),
-              );
-              if (confirmed == true && mounted) {
-                await supabase.auth.signOut();
-              }
-            },
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _addressesStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const AppLoading();
-          }
-
-          if (snapshot.hasError) {
-            return AppErrorState(
-              error: snapshot.error,
-              onRetry: () => setState(() {}),
-            );
-          }
-
-          final addresses =
-              (snapshot.data ?? []).map((row) => Address.fromJson(row)).toList();
-
-          if (addresses.isEmpty) {
-            return AppEmptyState(
-              icon: Icons.map_outlined,
-              title: 'Aucune adresse enregistrée',
-              message:
-                  'Ajoutez votre première adresse pour la retrouver facilement.',
-              actionLabel: 'Ajouter une adresse',
-              actionIcon: Icons.add,
-              onAction: () => context.push('/address/create'),
-              secondaryAction: Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.sm),
-                child: Text(
-                  'Connecté en tant que ${user?.email ?? "?"}',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
+          // Masqué quand la liste est vide : l'état vide affiche déjà un bouton
+          // « Ajouter une adresse » en pleine largeur.
+          fab: addresses.isEmpty
+              ? null
+              : FloatingActionButton(
+                  onPressed: () => context.push('/address/create'),
+                  tooltip: 'Ajouter une adresse',
+                  child: const Icon(Icons.add),
                 ),
-              ),
-            );
-          }
-
-          return ListView(
-            padding: AppSpacing.list,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Bienvenue !',
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    'Retrouvez facilement vos lieux importants',
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: scheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              SectionHeader(
-                title: 'Adresses récentes',
-                icon: Icons.access_time_outlined,
-                trailing: TextButton(
-                  onPressed: () => context.push('/search'),
-                  child: const Text('Rechercher'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ...List.generate(addresses.length, (index) {
-                final a = addresses[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index < addresses.length - 1 ? AppSpacing.sm : 0,
-                  ),
-                  child: _AddressCard(address: a),
-                );
-              }),
-            ],
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/address/create'),
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter une adresse'),
-      ),
+        );
+      },
     );
   }
+
+  /// Squelette commun à tous les états de l'écran, pour que la barre de
+  /// navigation reste présente pendant le chargement comme en erreur.
+  Widget _shell(Widget body, {Widget? fab}) => Scaffold(
+        appBar: _appBar(),
+        body: body,
+        floatingActionButton: fab,
+        bottomNavigationBar: ShellNavigationBar.of(context),
+      );
 }
 
 class _AddressCard extends StatelessWidget {

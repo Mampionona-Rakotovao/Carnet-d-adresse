@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../core/app_scaffold.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
@@ -120,6 +121,7 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
           if (_address != null) ..._buildAddressView(_address!),
         ],
       ),
+      bottomNavigationBar: ShellNavigationBar.of(context),
     );
   }
 

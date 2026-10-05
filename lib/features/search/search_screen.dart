@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/app_scaffold.dart';
 import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
@@ -201,6 +202,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: ShellNavigationBar.of(context),
     );
   }
 

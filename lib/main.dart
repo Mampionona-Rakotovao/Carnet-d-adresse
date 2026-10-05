@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/router.dart';
 import 'core/supabase_client.dart';
+import 'core/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,10 +17,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp.router(
       title: "Carnet d'adresses",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.teal,
-        useMaterial3: true,
-      ),
+      // AppTheme porte toute la charte visuelle (barre de navigation, boutons,
+      // champs, dialogues). Sans lui, chaque écran tournait avec son propre
+      // ThemeData et le travail de app_theme.dart n'était jamais visible.
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       routerConfig: router,
     );
   }

@@ -44,12 +44,12 @@ final GoRouter router = GoRouter(
       path: '/login',
       builder: (context, state) => const AuthScreen(),
     ),
-    GoRoute(
-      path: '/share/open',
-      builder: (context, state) => const RedeemShareScreen(),
-    ),
     ShellRoute(
       builder: (context, state, child) => AppScaffold(child: child),
+      // Trois onglets racine. « Ouvrir un lien » en fait partie : c'est un
+      // écran de navigation atteint depuis l'accueil, pas une tâche à part
+      // entière — l'utilisateur doit pouvoir changer d'onglet sans repasser
+      // par l'accueil.
       routes: [
         GoRoute(
           path: '/',
@@ -64,29 +64,33 @@ final GoRouter router = GoRouter(
           builder: (context, state) => const FavoritesScreen(),
         ),
         GoRoute(
-          path: '/address/create',
-          builder: (context, state) => const AddressFormScreen(),
-        ),
-        GoRoute(
-          path: '/address/:id/edit',
-          builder: (context, state) => AddressFormScreen(
-            existingAddress: state.extra as Address?,
-          ),
-        ),
-        GoRoute(
-          path: '/address/:id/steps',
-          builder: (context, state) => StepWizardScreen(
-            addressId: state.pathParameters['id']!,
-            addressName: state.extra as String? ?? '',
-          ),
-        ),
-        GoRoute(
-          path: '/address/:id',
-          builder: (context, state) => AddressDetailScreen(
-            addressId: state.pathParameters['id']!,
-          ),
+          path: '/share/open',
+          builder: (context, state) => const RedeemShareScreen(),
         ),
       ],
+    ),
+    GoRoute(
+      path: '/address/create',
+      builder: (context, state) => const AddressFormScreen(),
+    ),
+    GoRoute(
+      path: '/address/:id/edit',
+      builder: (context, state) => AddressFormScreen(
+        existingAddress: state.extra as Address?,
+      ),
+    ),
+    GoRoute(
+      path: '/address/:id/steps',
+      builder: (context, state) => StepWizardScreen(
+        addressId: state.pathParameters['id']!,
+        addressName: state.extra as String? ?? '',
+      ),
+    ),
+    GoRoute(
+      path: '/address/:id',
+      builder: (context, state) => AddressDetailScreen(
+        addressId: state.pathParameters['id']!,
+      ),
     ),
   ],
 );
