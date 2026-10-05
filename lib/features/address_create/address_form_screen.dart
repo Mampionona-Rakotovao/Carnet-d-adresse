@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../../ui/app_feedback.dart';
+import '../../ui/section.dart';
+import '../../ui/status_chip.dart';
 
-/// Formulaire unique pour créer OU modifier une adresse.
-/// Si [existingAddress] est fourni, l'écran passe en mode édition
-/// (champs pré-remplis, update au lieu d'insert).
 class AddressFormScreen extends StatefulWidget {
   final Address? existingAddress;
 
@@ -36,9 +38,6 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
 
   bool _locatingGps = false;
   bool _saving = false;
-  String? _errorMessage;
-  /// Vrai si la localisation a été refusée définitivement : le seul moyen de
-  /// la réactiver est de passer par les réglages du téléphone.
   bool _locationBlocked = false;
 
   @override
@@ -56,6 +55,14 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     _existingPhotoUrl = existing?.photoUrl;
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _localityController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickPhoto() async {
     final picked =
         await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600);
@@ -68,65 +75,82 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     });
   }
 
+  Future<void> _removePhoto() async {
+    setState(() {
+      _pickedPhotoBytes = null;
+      _pickedPhotoExt = null;
+      _existingPhotoUrl = null;
+    });
+  }
+
   Future<void> _captureGps() async {
     setState(() {
       _locatingGps = true;
-      _errorMessage = null;
       _locationBlocked = false;
     });
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        throw 'Le GPS est désactivé sur cet appareil.';
+        AppSnack.warning(context, 'Le GPS est désactivé sur cet appareil. Activez-le et réessayez.');
+        setState(() => _locatingGps = false);
+        return;
       }
-      LocationPermission permission = await Geolocator.checkPermission();
+
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw "L'autorisation de localisation a été refusée.";
-        }
       }
       if (permission == LocationPermission.deniedForever) {
-        throw 'Autorisation refusée définitivement. Active-la dans les paramètres.';
+        setState(() {
+          _locationBlocked = true;
+          _locatingGps = false;
+        });
+        AppSnack.error(
+          context,
+          'L\'accès à la localisation est refusé définitivement. Vous pouvez le réactiver dans les paramètres.',
+        );
+        return;
       }
-      final position = await Geolocator.getCurrentPosition();
+      if (permission == LocationPermission.denied) {
+        AppSnack.warning(context, 'L\'accès à la localisation est refusé.');
+        setState(() => _locatingGps = false);
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition();
       setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
+        _latitude = pos.latitude;
+        _longitude = pos.longitude;
       });
+      AppSnack.success(context, 'Position GPS récupérée avec succès');
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _locationBlocked = e.toString().contains('refusée définitivement');
-      });
+      AppSnack.error(context, e);
     } finally {
       if (mounted) setState(() => _locatingGps = false);
     }
   }
 
-  /// Ouvre les réglages du téléphone puis retente la capture : c'est le seul
-  /// chemin possible après un refus définitif.
   Future<void> _openSettingsAndRetry() async {
-    await Geolocator.openAppSettings();
-    await _captureGps();
+    await openAppSettings();
+  }
+  Future<String?> _uploadPhotoIfNeeded(String addressId) async {
+    if (_pickedPhotoBytes == null) return _existingPhotoUrl;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.${_pickedPhotoExt ?? 'jpg'}';
+    final path = '$addressId/cover_$fileName';
+    await supabase.storage.from('photos').uploadBinary(path, _pickedPhotoBytes!);
+    return supabase.storage.from('photos').getPublicUrl(path);
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_latitude == null || _longitude == null) {
-      setState(() => _errorMessage = "Capture la position GPS avant d'enregistrer.");
+      AppSnack.warning(context, 'Veuillez capturer la position GPS avant d\'enregistrer.');
       return;
     }
-
-    setState(() {
-      _saving = true;
-      _errorMessage = null;
-    });
-
+    setState(() => _saving = true);
     try {
       final userId = supabase.auth.currentUser!.id;
 
       if (widget.isEditMode) {
-        // Édition : l'id existe déjà, on peut uploader directement dessous.
         final photoUrl = await _uploadPhotoIfNeeded(widget.existingAddress!.id!);
         final address = Address(
           ownerId: userId,
@@ -147,10 +171,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             .from('addresses')
             .update(address.toInsertJson())
             .eq('id', widget.existingAddress!.id!);
+        if (mounted) context.pop(true);
       } else {
-        // Création : il faut d'abord insérer pour obtenir l'id généré
-        // par la base, PUIS uploader la photo sous ce dossier, PUIS
-        // mettre à jour la ligne avec l'URL de la photo.
         final address = Address(
           ownerId: userId,
           name: _nameController.text.trim(),
@@ -165,51 +187,35 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
           longitude: _longitude!,
           gpsType: _gpsType,
         );
-
         final inserted = await supabase
             .from('addresses')
             .insert(address.toInsertJson())
             .select()
             .single();
         final newId = inserted['id'] as String;
-
         if (_pickedPhotoBytes != null) {
           final photoUrl = await _uploadPhotoIfNeeded(newId);
           await supabase.from('addresses').update({'photo_url': photoUrl}).eq('id', newId);
         }
-
         if (mounted) {
-          // On enchaîne directement sur l'ajout des étapes, dans l'ordre,
-          // au lieu de revenir en arrière.
           context.pushReplacement(
             '/address/$newId/steps',
             extra: _nameController.text.trim(),
           );
-          return;
         }
       }
-
-      if (mounted) context.pop(true);
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
+      AppSnack.error(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  /// Upload la photo sélectionnée sous le dossier de l'adresse et
-  /// retourne son URL publique. Retourne l'URL existante si aucune
-  /// nouvelle photo n'a été choisie.
-  Future<String?> _uploadPhotoIfNeeded(String addressId) async {
-    if (_pickedPhotoBytes == null) return _existingPhotoUrl;
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}.${_pickedPhotoExt ?? 'jpg'}';
-    final path = '$addressId/cover_$fileName';
-    await supabase.storage.from('photos').uploadBinary(path, _pickedPhotoBytes!);
-    return supabase.storage.from('photos').getPublicUrl(path);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isEditMode ? "Modifier l'adresse" : 'Nouvelle adresse'),
@@ -217,140 +223,204 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: AppSpacing.form,
           children: [
-            Text('Photo de couverture', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickPhoto,
-              child: Container(
-                height: 160,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(8),
+            FormSection(
+              title: 'Photo du point de repère',
+              icon: Icons.photo_camera_outlined,
+              description: 'Ajoutez une photo pour faciliter la reconnaissance du lieu.',
+              children: [
+                GestureDetector(
+                  onTap: _pickPhoto,
+                  child: Container(
+                    height: 180,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: scheme.outlineVariant),
+                      borderRadius: AppRadius.cardRadius,
+                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: AppRadius.cardRadius,
+                      child: _pickedPhotoBytes != null
+                          ? Image.memory(
+                              _pickedPhotoBytes!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                            )
+                          : (_existingPhotoUrl != null
+                              ? Image.network(
+                                  _existingPhotoUrl!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 44,
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(height: AppSpacing.xs),
+                                    Text(
+                                      'Appuyer pour ajouter une photo',
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.xxs),
+                                    Text(
+                                      'Optionnel',
+                                      style: theme.textTheme.labelMedium,
+                                    ),
+                                  ],
+                                )),
+                    ),
+                  ),
                 ),
-                child: _pickedPhotoBytes != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.memory(_pickedPhotoBytes!, fit: BoxFit.cover, width: double.infinity),
-                      )
-                    : (_existingPhotoUrl != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(_existingPhotoUrl!, fit: BoxFit.cover, width: double.infinity),
-                          )
-                        : const Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
-                                SizedBox(height: 4),
-                                Text('Ajouter une photo (optionnel)', style: TextStyle(color: Colors.grey)),
-                              ],
-                            ),
-                          )),
-              ),
+                if (_pickedPhotoBytes != null || _existingPhotoUrl != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _removePhoto,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Supprimer la photo'),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nom *',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Le nom est obligatoire' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _localityController,
-              decoration: const InputDecoration(
-                labelText: 'Localité',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('Type de position', style: Theme.of(context).textTheme.titleSmall),
-            RadioListTile<GpsType>(
-              title: const Text('Position exacte'),
-              subtitle: const Text('Le GPS pointe directement sur la destination'),
-              value: GpsType.exact,
-              groupValue: _gpsType,
-              onChanged: (v) => setState(() => _gpsType = v!),
-            ),
-            RadioListTile<GpsType>(
-              title: const Text("Point d'accès"),
-              subtitle: const Text(
-                'Le GPS pointe vers le dernier point atteignable ; les étapes complètent le trajet',
-              ),
-              value: GpsType.accessPoint,
-              groupValue: _gpsType,
-              onChanged: (v) => setState(() => _gpsType = v!),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _locatingGps ? null : _captureGps,
-              icon: _locatingGps
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location),
-              label: Text(
-                _latitude == null
-                    ? 'Capturer ma position actuelle'
-                    : 'Position : ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('Visibilité', style: Theme.of(context).textTheme.titleSmall),
-            SegmentedButton<AddressVisibility>(
-              segments: const [
-                ButtonSegment(
-                  value: AddressVisibility.public,
-                  label: Text('Publique'),
-                  icon: Icon(Icons.public),
+            const SizedBox(height: AppSpacing.lg),
+            FormSection(
+              title: 'Informations du lieu',
+              icon: Icons.place_outlined,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom du lieu *',
+                    hintText: 'Ex. : Parking derrière la mairie',
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Le nom est obligatoire'
+                      : null,
                 ),
-                ButtonSegment(
-                  value: AddressVisibility.private,
-                  label: Text('Privée'),
-                  icon: Icon(Icons.lock),
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Remarques sur le lieu (facultatif)',
+                  ),
+                  maxLines: 3,
+                ),
+                TextFormField(
+                  controller: _localityController,
+                  decoration: const InputDecoration(
+                    labelText: 'Localité',
+                    hintText: 'Commune, quartier, village (facultatif)',
+                  ),
                 ),
               ],
-              selected: {_visibility},
-              onSelectionChanged: (s) => setState(() => _visibility = s.first),
             ),
-            const SizedBox(height: 20),
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-              ),
-            if (_locationBlocked)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.settings),
-                  label: const Text('Ouvrir les paramètres du téléphone'),
-                  onPressed: _openSettingsAndRetry,
+            const SizedBox(height: AppSpacing.lg),
+            FormSection(
+              title: 'Localisation',
+              icon: Icons.gps_fixed,
+              description: GpsType.exact.explanation,
+              children: [
+                SegmentedButton<GpsType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: GpsType.exact,
+                      label: Text('Position exacte'),
+                      icon: Icon(Icons.gps_fixed),
+                    ),
+                    ButtonSegment(
+                      value: GpsType.accessPoint,
+                      label: Text("Point d'accès"),
+                      icon: Icon(Icons.route),
+                    ),
+                  ],
+                  selected: {_gpsType},
+                  onSelectionChanged: (s) {
+                    setState(() => _gpsType = s.first);
+                  },
                 ),
-              ),
+                if (_gpsType == GpsType.accessPoint)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                    child: Text(
+                      GpsType.accessPoint.explanation,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.sm),
+                FilledButton.icon(
+                  onPressed: _locatingGps ? null : _captureGps,
+                  icon: _locatingGps
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.my_location),
+                  label: Text(
+                    _latitude == null || _longitude == null
+                        ? 'Capturer ma position actuelle'
+                        : 'Position : ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
+                  ),
+                ),
+                if (_locationBlocked)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Ouvrir les paramètres du téléphone'),
+                      onPressed: _openSettingsAndRetry,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            FormSection(
+              title: 'Visibilité',
+              icon: Icons.visibility_outlined,
+              description: 'Définissez qui peut voir cette adresse.',
+              children: [
+                SegmentedButton<AddressVisibility>(
+                  segments: const [
+                    ButtonSegment(
+                      value: AddressVisibility.public,
+                      label: Text('Publique'),
+                      icon: Icon(Icons.public),
+                    ),
+                    ButtonSegment(
+                      value: AddressVisibility.private,
+                      label: Text('Privée'),
+                      icon: Icon(Icons.lock),
+                    ),
+                  ],
+                  selected: {_visibility},
+                  onSelectionChanged: (s) => setState(() => _visibility = s.first),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                  child: Text(
+                    _visibility == AddressVisibility.public
+                        ? AddressVisibility.public.explanation
+                        : AddressVisibility.private.explanation,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xl),
             FilledButton(
               onPressed: _saving ? null : _save,
               child: _saving
                   ? const SizedBox(
-                      height: 18,
-                      width: 18,
+                      height: 20,
+                      width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Text(widget.isEditMode ? 'Enregistrer les modifications' : 'Enregistrer'),

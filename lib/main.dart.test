@@ -1,0 +1,14 @@
+import 'package:flutter/material.dart';
+import 'core/router.dart';
+import 'core/supabase_client.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Skip initSupabase in tests? Better to handle via --dart-define or just ensure
+  try {
+    await initSupabase();
+  } catch (e) {
+    // Ignore in test environments
+  }
+  runApp(const MyApp());
+}

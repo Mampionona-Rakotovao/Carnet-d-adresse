@@ -4,15 +4,18 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
-import '../address_create/address_form_screen.dart';
 import 'widgets/landmark_detail_sheet.dart';
 import 'widgets/landmark_form_sheet.dart';
 import 'widgets/route_step_detail_sheet.dart';
 import 'widgets/route_step_form_sheet.dart';
 import 'widgets/share_link_sheet.dart';
+import '../../ui/app_feedback.dart';
+import '../../ui/app_states.dart';
+import '../../ui/status_chip.dart';
 
 class AddressDetailScreen extends StatefulWidget {
   final String addressId;
@@ -76,7 +79,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         _isFavorite = favorite;
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) AppSnack.error(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -119,10 +122,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
       await supabase.from('addresses').delete().eq('id', _address!.id!);
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
-      }
+      if (!mounted) return;
+      AppSnack.error(context, e);
     }
   }
 
@@ -222,18 +223,23 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isFavorite = previous);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+      AppSnack.error(context, e);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: AppLoading());
     }
     if (_error != null) {
-      return Scaffold(body: Center(child: Text('Erreur : $_error')));
+      return Scaffold(
+        appBar: AppBar(),
+        body: AppErrorState(
+          error: _error,
+          onRetry: _loadAll,
+        ),
+      );
     }
 
     final address = _address!;
@@ -272,7 +278,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.list,
         children: [
           if (address.photoUrl != null) ...[
             ClipRRect(
@@ -284,42 +290,40 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
           ],
-          // ---- Infos générales ----
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                address.visibility == AddressVisibility.public
-                    ? Icons.public
-                    : Icons.lock,
-                size: 18,
+              Text(
+                address.name,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(width: 6),
-              Text(address.visibility == AddressVisibility.public ? 'Publique' : 'Privée'),
-              const SizedBox(width: 16),
-              Icon(
-                address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
-                size: 18,
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xxs,
+                children: [
+                  AppStatusChip.visibility(address.visibility, dense: true),
+                  AppStatusChip.gpsType(address.gpsType, dense: true),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(address.gpsType == GpsType.exact ? 'Position exacte' : "Point d'accès"),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           if (address.locality != null) ...[
             Text('Localité', style: Theme.of(context).textTheme.titleSmall),
             Text(address.locality!),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
           ],
           if (address.description != null) ...[
             Text('Description', style: Theme.of(context).textTheme.titleSmall),
             Text(address.description!),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.md),
           ],
           Text('Coordonnées GPS', style: Theme.of(context).textTheme.titleSmall),
           Text('${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
@@ -372,7 +376,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.lg),
           const Divider(),
 
           // ---- Repères ----
@@ -424,7 +428,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                   ),
                 )),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           const Divider(),
 
           // ---- Étapes ----

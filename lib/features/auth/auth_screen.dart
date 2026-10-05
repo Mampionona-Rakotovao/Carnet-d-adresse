@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../ui/app_feedback.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -11,15 +13,21 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isSignUp = false; // false = connexion, true = inscription
+  final _formKey = GlobalKey<FormState>();
+  bool _isSignUp = false;
   bool _loading = false;
-  String? _errorMessage;
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
 
     try {
       if (_isSignUp) {
@@ -33,10 +41,8 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _passwordController.text.trim(),
         );
       }
-      // Pas besoin de naviguer manuellement : go_router détecte
-      // le changement de session (onAuthStateChange) et redirige seul.
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
+      if (mounted) AppSnack.error(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -44,76 +50,131 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  "Carnet d'adresses",
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _isSignUp ? 'Créer un compte' : 'Se connecter',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Mot de passe',
-                    border: OutlineInputBorder(),
-                  ),
-                  obscureText: true,
-                ),
-                const SizedBox(height: 8),
-                if (_errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: scheme.primaryContainer,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.location_on,
+                            size: 36,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          "Carnet d'adresses",
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          _isSignUp
+                              ? 'Créez votre compte pour enregistrer vos lieux'
+                              : 'Connectez-vous pour accéder à votre carnet',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(_isSignUp ? "S'inscrire" : 'Se connecter'),
+                    const SizedBox(height: AppSpacing.xl),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Adresse e-mail',
+                        hintText: 'exemple@mail.com',
+                        prefixIcon: Icon(Icons.alternate_email),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'L\'e-mail est obligatoire';
+                        }
+                        final email = v.trim();
+                        final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                        if (!regex.hasMatch(email)) {
+                          return 'Format d\'e-mail invalide';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscure,
+                      decoration: InputDecoration(
+                        labelText: 'Mot de passe',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                          icon: Icon(
+                            _obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          tooltip: _obscure ? 'Afficher' : 'Masquer',
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Le mot de passe est obligatoire';
+                        }
+                        if (_isSignUp && v.trim().length < 6) {
+                          return 'Minimum 6 caractères';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    FilledButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(_isSignUp ? "S'inscrire" : 'Se connecter'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () => setState(() => _isSignUp = !_isSignUp),
+                      child: Text(
+                        _isSignUp
+                            ? "Déjà un compte ? Se connecter"
+                            : "Pas de compte ? S'inscrire",
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _loading
-                      ? null
-                      : () => setState(() => _isSignUp = !_isSignUp),
-                  child: Text(
-                    _isSignUp
-                        ? "Déjà un compte ? Se connecter"
-                        : "Pas de compte ? S'inscrire",
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

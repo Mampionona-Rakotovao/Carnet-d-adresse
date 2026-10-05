@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/supabase_client.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../../ui/app_states.dart';
+import '../../ui/section.dart';
+import '../../ui/status_chip.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,10 +21,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     final userId = supabase.auth.currentUser!.id;
-
-    // Flux temps réel : Postgres notifie Supabase Realtime à chaque
-    // insert/update/delete sur "addresses", qui pousse la donnée via
-    // websocket. Plus besoin de rafraîchir manuellement après création.
     _addressesStream = supabase
         .from('addresses')
         .stream(primaryKey: ['id'])
@@ -31,6 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -46,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Se déconnecter',
             onPressed: () async {
               await supabase.auth.signOut();
-              // go_router redirige automatiquement vers /login.
             },
           ),
         ],
@@ -55,17 +56,13 @@ class _HomeScreenState extends State<HomeScreen> {
         stream: _addressesStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoading();
           }
 
           if (snapshot.hasError) {
-            return ListView(
-              children: [
-                const SizedBox(height: 100),
-                Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-                const SizedBox(height: 12),
-                Center(child: Text('Erreur : ${snapshot.error}')),
-              ],
+            return AppErrorState(
+              error: snapshot.error,
+              onRetry: () => setState(() {}),
             );
           }
 
@@ -73,62 +70,160 @@ class _HomeScreenState extends State<HomeScreen> {
               (snapshot.data ?? []).map((row) => Address.fromJson(row)).toList();
 
           if (addresses.isEmpty) {
-            return ListView(
-              children: [
-                const SizedBox(height: 100),
-                const Icon(Icons.map_outlined, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(
+            return AppEmptyState(
+              icon: Icons.map_outlined,
+              title: 'Aucune adresse enregistrée',
+              message:
+                  'Ajoutez votre première adresse pour la retrouver facilement.',
+              actionLabel: 'Ajouter une adresse',
+              actionIcon: Icons.add,
+              onAction: () => context.push('/address/create'),
+              secondaryAction: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: Text(
                   'Connecté en tant que ${user?.email ?? "?"}',
                   textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall,
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  "Aucune adresse pour le moment.\nAppuie sur + pour en créer une.",
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: addresses.length,
-            itemBuilder: (context, index) {
-              final a = addresses[index];
-              return Card(
-                child: ListTile(
-                  onTap: () => context.push('/address/${a.id}'),
-                  leading: a.photoUrl != null
-                      ? CircleAvatar(backgroundImage: NetworkImage(a.photoUrl!))
-                      : Icon(
-                          a.visibility == AddressVisibility.public
-                              ? Icons.public
-                              : Icons.lock,
-                        ),
-                  title: Text(a.name),
-                  subtitle: Text(
-                    [
-                      if (a.locality != null) a.locality!,
-                      a.gpsType == GpsType.exact
-                          ? 'Position exacte'
-                          : "Point d'accès",
-                    ].join(' · '),
+          return ListView(
+            padding: AppSpacing.list,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bienvenue !',
+                    style: theme.textTheme.headlineSmall,
                   ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    'Retrouvez facilement vos lieux importants',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SectionHeader(
+                title: 'Adresses récentes',
+                icon: Icons.access_time_outlined,
+                trailing: TextButton(
+                  onPressed: () => context.push('/search'),
+                  child: const Text('Rechercher'),
                 ),
-              );
-            },
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ...List.generate(addresses.length, (index) {
+                final a = addresses[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index < addresses.length - 1 ? AppSpacing.sm : 0,
+                  ),
+                  child: _AddressCard(address: a),
+                );
+              }),
+            ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await context.push<bool>('/address/create');
-          // Pas besoin de vérifier le retour ni d'appeler un refresh :
-          // dès que l'insert Supabase réussit, le stream pousse la
-          // nouvelle donnée tout seul et l'UI se reconstruit.
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/address/create'),
+        icon: const Icon(Icons.add),
+        label: const Text('Ajouter une adresse'),
+      ),
+    );
+  }
+}
+
+class _AddressCard extends StatelessWidget {
+  const _AddressCard({required this.address});
+
+  final Address address;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    final subtitleParts = <String>[];
+    if (address.locality != null && address.locality!.isNotEmpty) {
+      subtitleParts.add(address.locality!);
+    }
+    subtitleParts.add(address.gpsType.label);
+
+    return Card(
+      child: InkWell(
+        onTap: () => context.push('/address/${address.id}'),
+        borderRadius: AppRadius.cardRadius,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: scheme.primaryContainer,
+                foregroundColor: scheme.onPrimaryContainer,
+                backgroundImage: address.photoUrl != null
+                    ? NetworkImage(address.photoUrl!)
+                    : null,
+                child: address.photoUrl == null
+                    ? Icon(
+                        address.visibility == AddressVisibility.public
+                            ? Icons.public
+                            : Icons.lock_outline,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      address.name,
+                      style: theme.textTheme.titleMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitleParts.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        subtitleParts.join(' · '),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xxs,
+                      children: [
+                        AppStatusChip.gpsType(address.gpsType, dense: true),
+                        AppStatusChip.visibility(
+                          address.visibility,
+                          dense: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(
+                Icons.chevron_right,
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

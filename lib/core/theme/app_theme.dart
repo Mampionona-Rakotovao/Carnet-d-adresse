@@ -50,7 +50,7 @@ abstract final class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: ButtonStyle(
           minimumSize: const WidgetStatePropertyAll(Size.square(48)),
-          shape: WidgetStatePropertyAll(
+          shape: const WidgetStatePropertyAll(
             RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
           ),
         ),
