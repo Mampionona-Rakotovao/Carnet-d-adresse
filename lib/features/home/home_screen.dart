@@ -47,7 +47,26 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.logout),
             tooltip: 'Se déconnecter',
             onPressed: () async {
-              await supabase.auth.signOut();
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Se déconnecter ?'),
+                  content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Annuler'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Se déconnecter'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && mounted) {
+                await supabase.auth.signOut();
+              }
             },
           ),
         ],
