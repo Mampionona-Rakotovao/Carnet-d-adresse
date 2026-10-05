@@ -8,7 +8,9 @@ import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../address_create/address_form_screen.dart';
+import 'widgets/landmark_detail_sheet.dart';
 import 'widgets/landmark_form_sheet.dart';
+import 'widgets/route_step_detail_sheet.dart';
 import 'widgets/route_step_form_sheet.dart';
 import 'widgets/share_link_sheet.dart';
 
@@ -28,6 +30,12 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   bool _isFavorite = false;
   bool _loading = true;
   String? _error;
+
+  /// Seul le propriétaire voit les actions de modification. La RLS protège
+  /// déjà le serveur, mais l'interface ne doit pas non plus proposer des
+  /// actions interdites à un simple visiteur (public ou autorisé en lecture).
+  bool get _isOwner =>
+      _address != null && _address!.ownerId == supabase.auth.currentUser?.id;
 
   @override
   void initState() {
@@ -118,16 +126,89 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     }
   }
 
+  Future<void> _editLandmark(Landmark l) async {
+    final ok = await showLandmarkFormSheet(
+      context,
+      addressId: _address!.id!,
+      existing: l,
+    );
+    if (ok == true) _loadAll();
+  }
+
   Future<void> _deleteLandmark(Landmark l) async {
     if (!await _confirm('Supprimer ce repère ?', '"${l.name}" sera supprimé.')) return;
     await supabase.from('landmarks').delete().eq('id', l.id!);
     _loadAll();
   }
 
+  Future<void> _editStep(RouteStep s) async {
+    final ok = await showRouteStepFormSheet(
+      context,
+      addressId: _address!.id!,
+      landmarks: _landmarks,
+      nextStepOrder: _steps.length + 1,
+      existing: s,
+    );
+    if (ok == true) _loadAll();
+  }
+
   Future<void> _deleteStep(RouteStep s) async {
     if (!await _confirm('Supprimer cette étape ?', 'L\'étape sera supprimée.')) return;
     await supabase.from('route_steps').delete().eq('id', s.id!);
     _loadAll();
+  }
+
+  /// Détail d'un repère : tout son contenu plus les étapes du trajet qui lui
+  /// correspondent, chacune affichée en entier et modifiable sur place.
+  /// Le feuillet renvoie l'action demandée, l'écran l'exécute.
+  Future<void> _openLandmarkDetail(Landmark l) async {
+    final action = await showLandmarkDetailSheet(
+      context,
+      landmark: l,
+      steps: _steps,
+      isOwner: _isOwner,
+    );
+    if (!mounted || action == null) return;
+
+    if (action == landmarkDetailEdit) {
+      await _editLandmark(l);
+    } else if (action == landmarkDetailDelete) {
+      await _deleteLandmark(l);
+    } else if (action.startsWith(landmarkDetailStepEditPrefix)) {
+      final step = _stepFromAction(action, landmarkDetailStepEditPrefix);
+      if (step != null) await _editStep(step);
+    } else if (action.startsWith(landmarkDetailStepDeletePrefix)) {
+      final step = _stepFromAction(action, landmarkDetailStepDeletePrefix);
+      if (step != null) await _deleteStep(step);
+    }
+  }
+
+  /// Détail d'une étape, avec un lien vers son repère associé.
+  Future<void> _openStepDetail(RouteStep s) async {
+    final matches = _landmarks.where((l) => l.id == s.landmarkId);
+    final action = await showRouteStepDetailSheet(
+      context,
+      step: s,
+      landmark: matches.isEmpty ? null : matches.first,
+      isOwner: _isOwner,
+    );
+    if (!mounted || action == null) return;
+
+    if (action == routeStepDetailEdit) {
+      await _editStep(s);
+    } else if (action == routeStepDetailDelete) {
+      await _deleteStep(s);
+    } else if (action == routeStepDetailLandmark && matches.isNotEmpty) {
+      await _openLandmarkDetail(matches.first);
+    }
+  }
+
+  /// Le feuillet encode l'action et l'id de l'étape sous la forme
+  /// `<préfixe><id>` : on en ressort l'étape concernée.
+  RouteStep? _stepFromAction(String action, String prefix) {
+    final stepId = action.substring(prefix.length);
+    final matches = _steps.where((s) => s.id == stepId);
+    return matches.isEmpty ? null : matches.first;
   }
 
   /// Bascule l'étoile : l'icône change immédiatement, l'écriture en base
@@ -156,10 +237,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     }
 
     final address = _address!;
-    // Seul le propriétaire voit les actions de modification. La RLS protège
-    // déjà le serveur, mais l'interface ne doit pas non plus proposer des
-    // actions interdites à un simple visiteur (public ou autorisé en lecture).
-    final isOwner = address.ownerId == supabase.auth.currentUser?.id;
+    final isOwner = _isOwner;
 
     return Scaffold(
       appBar: AppBar(
@@ -278,10 +356,13 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                               point: LatLng(l.latitude!, l.longitude!),
                               width: 36,
                               height: 36,
-                              child: const Icon(
-                                Icons.place,
-                                color: Colors.blue,
-                                size: 30,
+                              child: GestureDetector(
+                                onTap: () => _openLandmarkDetail(l),
+                                child: const Icon(
+                                  Icons.place,
+                                  color: Colors.blue,
+                                  size: 30,
+                                ),
                               ),
                             ),
                           ),
@@ -318,6 +399,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           else
             ..._landmarks.map((l) => Card(
                   child: ListTile(
+                    onTap: () => _openLandmarkDetail(l),
                     leading: CircleAvatar(
                       backgroundImage: l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
                       child: l.photoUrl == null ? const Icon(Icons.place) : null,
@@ -330,14 +412,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                             children: [
                               IconButton(
                                 icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () async {
-                                  final ok = await showLandmarkFormSheet(
-                                    context,
-                                    addressId: address.id!,
-                                    existing: l,
-                                  );
-                                  if (ok == true) _loadAll();
-                                },
+                                onPressed: () => _editLandmark(l),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline, size: 20),
@@ -345,7 +420,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                               ),
                             ],
                           )
-                        : null,
+                        : const Icon(Icons.chevron_right),
                   ),
                 )),
 
@@ -384,6 +459,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               final landmark = matches.isEmpty ? null : matches.first;
               return Card(
                 child: ListTile(
+                  onTap: () => _openStepDetail(s),
                   leading: CircleAvatar(child: Text('${s.stepOrder}')),
                   title: Text(s.instruction),
                   subtitle: Text([
@@ -397,16 +473,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () async {
-                                final ok = await showRouteStepFormSheet(
-                                  context,
-                                  addressId: address.id!,
-                                  landmarks: _landmarks,
-                                  nextStepOrder: _steps.length + 1,
-                                  existing: s,
-                                );
-                                if (ok == true) _loadAll();
-                              },
+                              onPressed: () => _editStep(s),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20),
@@ -414,7 +481,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                             ),
                           ],
                         )
-                      : null,
+                      : const Icon(Icons.chevron_right),
                 ),
               );
             }),
