@@ -221,7 +221,11 @@ abstract final class AppTheme {
 
   static FilledButtonThemeData _filled() => FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          // Minimum fini : `Size.fromHeight(52)` donnerait une largeur infinie
+          // et ferait planter tout bouton posé dans un `Row` (voir panneau de
+          // partage). La pleine largeur vient des contraintes du parent
+          // (stretch, ListView), pas d'une largeur minimum infinie.
+          minimumSize: const Size(48, 52),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -231,7 +235,7 @@ abstract final class AppTheme {
   static OutlinedButtonThemeData _outlined(ColorScheme scheme) =>
       OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(48, 52),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           side: BorderSide(color: scheme.outline),
           foregroundColor: scheme.primary,

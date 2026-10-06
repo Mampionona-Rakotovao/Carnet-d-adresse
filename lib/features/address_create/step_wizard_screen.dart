@@ -162,17 +162,23 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
               child: _page == 0
-                  ? FilledButton.icon(
-                      onPressed: () => setState(() => _page = 1),
-                      icon: const Icon(Icons.arrow_forward),
-                      label: const Text('Passer aux étapes du trajet'),
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => setState(() => _page = 1),
+                        icon: const Icon(Icons.arrow_forward),
+                        label: const Text('Passer aux étapes du trajet'),
+                      ),
                     )
-                  : OutlinedButton(
-                      onPressed: _finish,
-                      child: Text(
-                        _steps.isEmpty
-                            ? "Terminer sans ajouter d'étape"
-                            : 'Terminer (${_steps.length} étape${_steps.length > 1 ? 's' : ''} ajoutée${_steps.length > 1 ? 's' : ''})',
+                  : SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: _finish,
+                        child: Text(
+                          _steps.isEmpty
+                              ? "Terminer sans ajouter d'étape"
+                              : 'Terminer (${_steps.length} étape${_steps.length > 1 ? 's' : ''} ajoutée${_steps.length > 1 ? 's' : ''})',
+                        ),
                       ),
                     ),
             ),
