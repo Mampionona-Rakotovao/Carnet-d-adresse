@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_scaffold.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/theme/theme_mode_controller.dart';
 import '../../models/address.dart';
 import '../../ui/app_states.dart';
 import '../../ui/section.dart';
@@ -66,33 +67,69 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Menu',
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              if (value == 'open_link') {
+              // Les noms de mode (`system`, `light`, `dark`) servent de valeur
+              // d'entrée de menu : il n'y a pas de collision avec les autres.
+              final mode = ThemeMode.values.asNameMap()[value];
+              if (mode != null) {
+                ThemeModeScope.set(context, mode);
+              } else if (value == 'open_link') {
                 context.push('/share/open');
               } else if (value == 'logout') {
                 _confirmLogout();
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'open_link',
-                child: ListTile(
-                  leading: Icon(Icons.link),
-                  title: Text('Ouvrir un lien'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'logout',
-                child: ListTile(
-                  leading: Icon(Icons.logout, color: Colors.red),
-                  title: Text(
-                    'Se déconnecter',
-                    style: TextStyle(color: Colors.red),
+            itemBuilder: (context) {
+              final theme = Theme.of(context);
+              final scheme = theme.colorScheme;
+              return [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    'Apparence',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
-                  contentPadding: EdgeInsets.zero,
                 ),
-              ),
-            ],
+                // Choix du thème : clair, sombre ou suivi du système. La coche
+                // marque le mode courant ; le choix est mémorisé (Préférences).
+                for (final mode in ThemeModeController.choices)
+                  CheckedPopupMenuItem(
+                    value: mode.name,
+                    checked: ThemeModeScope.of(context) == mode,
+                    child: Row(
+                      children: [
+                        Icon(
+                          ThemeModeController.icon(mode),
+                          size: 20,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(ThemeModeController.label(mode)),
+                      ],
+                    ),
+                  ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'open_link',
+                  child: ListTile(
+                    leading: Icon(Icons.link),
+                    title: Text('Ouvrir un lien'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: ListTile(
+                    leading: Icon(Icons.logout, color: Colors.red),
+                    title: Text(
+                      'Se déconnecter',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       );
