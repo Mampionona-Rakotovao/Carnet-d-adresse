@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
@@ -39,6 +41,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   bool _locatingGps = false;
   bool _saving = false;
   bool _locationBlocked = false;
+  int _posRevision = 0;
 
   @override
   void initState() {
@@ -120,6 +123,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
+        _posRevision++;
       });
       AppSnack.success(context, 'Position GPS récupérée avec succès');
     } catch (e) {
@@ -326,35 +330,9 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             FormSection(
               title: 'Localisation',
               icon: Icons.gps_fixed,
-              description: GpsType.exact.explanation,
+              description:
+                  'Capturez votre position, ajustez-la sur la carte, puis confirmez le type de repérage.',
               children: [
-                SegmentedButton<GpsType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: GpsType.exact,
-                      label: Text('Position exacte'),
-                      icon: Icon(Icons.gps_fixed),
-                    ),
-                    ButtonSegment(
-                      value: GpsType.accessPoint,
-                      label: Text("Point d'accès"),
-                      icon: Icon(Icons.route),
-                    ),
-                  ],
-                  selected: {_gpsType},
-                  onSelectionChanged: (s) {
-                    setState(() => _gpsType = s.first);
-                  },
-                ),
-                if (_gpsType == GpsType.accessPoint)
-                  Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                    child: Text(
-                      GpsType.accessPoint.explanation,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                const SizedBox(height: AppSpacing.sm),
                 FilledButton.icon(
                   onPressed: _locatingGps ? null : _captureGps,
                   icon: _locatingGps
@@ -379,6 +357,49 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                       onPressed: _openSettingsAndRetry,
                     ),
                   ),
+                if (_latitude != null && _longitude != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  _PositionPickerMap(
+                    key: ValueKey('gps-$_posRevision'),
+                    initialPosition: LatLng(_latitude!, _longitude!),
+                    onPositionChanged: (p) => setState(() {
+                      _latitude = p.latitude;
+                      _longitude = p.longitude;
+                    }),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Type de repérage à confirmer',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  SegmentedButton<GpsType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: GpsType.exact,
+                        label: Text('Position exacte'),
+                        icon: Icon(Icons.gps_fixed),
+                      ),
+                      ButtonSegment(
+                        value: GpsType.accessPoint,
+                        label: Text("Point d'accès"),
+                        icon: Icon(Icons.route),
+                      ),
+                    ],
+                    selected: {_gpsType},
+                    onSelectionChanged: (s) {
+                      setState(() => _gpsType = s.first);
+                    },
+                  ),
+                  if (_gpsType == GpsType.accessPoint)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                      child: Text(
+                        GpsType.accessPoint.explanation,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                ],
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -424,6 +445,112 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Text(widget.isEditMode ? 'Enregistrer les modifications' : 'Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Carte de sélection de la position : la position retenue correspond au
+/// centre de l'écran (épingle centrale). On fait glisser la carte pour
+/// ajuster le point.
+class _PositionPickerMap extends StatefulWidget {
+  final LatLng initialPosition;
+  final ValueChanged<LatLng> onPositionChanged;
+
+  const _PositionPickerMap({
+    super.key,
+    required this.initialPosition,
+    required this.onPositionChanged,
+  });
+
+  @override
+  State<_PositionPickerMap> createState() => _PositionPickerMapState();
+}
+
+class _PositionPickerMapState extends State<_PositionPickerMap> {
+  final MapController _controller = MapController();
+  late LatLng _position = widget.initialPosition;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event is! MapEventMoveEnd) return;
+    final center = event.camera.center;
+    widget.onPositionChanged(center);
+    setState(() => _position = center);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ClipRRect(
+      borderRadius: AppRadius.cardRadius,
+      child: SizedBox(
+        height: 240,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            FlutterMap(
+              options: MapOptions(
+                initialCenter: widget.initialPosition,
+                initialZoom: 16,
+                onMapEvent: _onMapEvent,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.carnet_adresses.repere',
+                ),
+              ],
+            ),
+            IgnorePointer(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.location_on, size: 42, color: Colors.red),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: scheme.inverseSurface.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${_position.latitude.toStringAsFixed(5)}, '
+                      '${_position.longitude.toStringAsFixed(5)}',
+                      style: TextStyle(color: scheme.onInverseSurface, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 8,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Faites glisser la carte pour ajuster la position',
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
