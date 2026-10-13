@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_client.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/auth/confirm_email_screen.dart';
+import '../features/auth/reset_code_screen.dart';
 import '../features/auth/reset_password_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/address_create/address_form_screen.dart';
@@ -64,21 +65,35 @@ GoRouter _buildRouter() {
       final loggedIn = supabase.auth.currentSession != null;
       final onLoginPage = state.matchedLocation == '/login';
       final onResetPage = state.matchedLocation == '/reset-password';
+      final onResetCodePage = state.matchedLocation == '/reset-code';
       final onConfirmPage = state.matchedLocation == '/confirm-email';
 
-      // Tant que le lien de réinitialisation n'est pas consommé, on ne
-      // laisse pas l'utilisateur aller ailleurs que sur /reset-password.
+      // Une fois le mot de passe en cours de réinitialisation (code validé ou
+      // lien ouvert), on force l'écran de saisie du nouveau mot de passe.
       if (_isPasswordRecovery) {
         return onResetPage ? null : '/reset-password';
       }
-      if (!loggedIn && !onLoginPage && !onConfirmPage) return '/login';
-      if (loggedIn && (onLoginPage || onConfirmPage)) return '/';
+      if (!loggedIn &&
+          !onLoginPage &&
+          !onConfirmPage &&
+          !onResetCodePage) {
+        return '/login';
+      }
+      if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
+        return '/';
+      }
       return null;
     },
     routes: [
       GoRoute(
         path: '/login',
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: '/reset-code',
+        builder: (context, state) => ResetCodeScreen(
+          email: state.extra as String? ?? '',
+        ),
       ),
       GoRoute(
         path: '/reset-password',

@@ -100,24 +100,20 @@ class _AuthScreenState extends State<AuthScreen> {
     if (email == null || email.isEmpty || !mounted) return;
 
     try {
-      // redirectTo : où Supabase renvoie l'utilisateur après avoir cliqué
-      // le lien reçu par email. On pointe directement sur /reset-password :
-      // sur le web, go_router prend le chemin de l'URL comme route initiale,
-      // ce qui ouvre le bon écran même si l'événement passwordRecovery est
-      // consommé par Supabase avant que le routeur ne l'écoute.
-      // Cette URL doit figurer dans Supabase → Authentication →
-      // URL Configuration → Redirect URLs.
+      // Supabase envoie un email de réinitialisation. S'il contient le code
+      // à 6 chiffres (`{{ .Token }}` dans le template), l'utilisateur le
+      // saisit sur l'écran suivant ; le lien éventuel reste géré en secours.
       await supabase.auth.resetPasswordForEmail(
         email,
         redirectTo: _resetRedirectUrl(),
       );
-      if (mounted) {
-        AppSnack.info(
-          context,
-          'Si ce compte existe, un email de réinitialisation vient '
-          "d'être envoyé. Suis le lien qu'il contient.",
-        );
-      }
+      if (!mounted) return;
+      AppSnack.info(
+        context,
+        'Si ce compte existe, un code de réinitialisation vient '
+        "d'être envoyé par email.",
+      );
+      context.push('/reset-code', extra: email);
     } catch (e) {
       if (mounted) AppSnack.error(context, e);
     }

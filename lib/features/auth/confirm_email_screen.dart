@@ -85,6 +85,9 @@ class _ConfirmEmailScreenState extends State<ConfirmEmailScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Code de confirmation',
                     border: OutlineInputBorder(),
+                    // Masque le compteur « 0/10 » : la longueur du code est
+                    // un réglage Supabase, l'afficher n'apporte rien.
+                    counterText: '',
                   ),
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
