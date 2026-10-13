@@ -58,10 +58,6 @@ class ShareLink {
             : null,
       );
 
-  /// Un lien ACTIVE dont la date d'expiration est dépassée doit être
-  /// traité comme expiré côté affichage, même avant que le serveur
-  /// n'ait mis à jour la colonne status (le serveur le fait au moment
-  /// de la consultation via le lien, pas en continu).
   bool get isEffectivelyActive =>
       status == ShareLinkStatus.active && expiresAt.isAfter(DateTime.now());
 }

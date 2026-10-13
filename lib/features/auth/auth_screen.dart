@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../ui/app_feedback.dart';
@@ -11,6 +13,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -20,6 +23,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -31,21 +35,110 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isSignUp) {
-        await supabase.auth.signUp(
-          email: _emailController.text.trim(),
+        final email = _emailController.text.trim();
+        final res = await supabase.auth.signUp(
+          email: email,
           password: _passwordController.text.trim(),
+          // Le nom est conservé dans les métadonnées du compte ; le profil
+          // est ensuite créé/complété par ensureProfile().
+          data: {'name': _nameController.text.trim()},
         );
+
+        // Si « Confirm email » est activé côté Supabase, signUp() ne crée
+        // pas encore de session : il faut d'abord valider le code reçu
+        // par email avant de pouvoir se connecter.
+        if (res.session == null) {
+          if (mounted) context.push('/confirm-email', extra: email);
+        } else {
+          // Confirmation désactivée : la session existe déjà, on peut créer
+          // le profil tout de suite.
+          await ensureProfile();
+        }
       } else {
         await supabase.auth.signInWithPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
       }
+      // Sinon, pas de navigation manuelle : go_router détecte le
+      // changement de session (onAuthStateChange) et redirige seul.
     } catch (e) {
       if (mounted) AppSnack.error(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _forgotPassword() async {
+    final controller = TextEditingController(text: _emailController.text);
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mot de passe oublié'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: 'Adresse e-mail',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Envoyer'),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null || email.isEmpty || !mounted) return;
+
+    try {
+      // redirectTo : où Supabase renvoie l'utilisateur après avoir cliqué
+      // le lien reçu par email. On pointe directement sur /reset-password :
+      // sur le web, go_router prend le chemin de l'URL comme route initiale,
+      // ce qui ouvre le bon écran même si l'événement passwordRecovery est
+      // consommé par Supabase avant que le routeur ne l'écoute.
+      // Cette URL doit figurer dans Supabase → Authentication →
+      // URL Configuration → Redirect URLs.
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: _resetRedirectUrl(),
+      );
+      if (mounted) {
+        AppSnack.info(
+          context,
+          'Si ce compte existe, un email de réinitialisation vient '
+          "d'être envoyé. Suis le lien qu'il contient.",
+        );
+      }
+    } catch (e) {
+      if (mounted) AppSnack.error(context, e);
+    }
+  }
+
+  /// Schéma d'URL (deep link) qui rouvre l'application sur mobile.
+  /// Déclaré dans android/app/src/main/AndroidManifest.xml.
+  static const _mobileScheme = 'carnetadresses';
+
+  /// URL vers laquelle Supabase redirige après le clic sur le lien de
+  /// réinitialisation reçu par email.
+  ///
+  /// - Web : on cible `/reset-password` afin que go_router ouvre directement
+  ///   l'écran de saisie du nouveau mot de passe.
+  /// - Mobile : on utilise un deep link (`carnetadresses://reset-password`)
+  ///   que le système remet à l'application.
+  String _resetRedirectUrl() {
+    if (!kIsWeb) return '$_mobileScheme://reset-password';
+    return Uri.base
+        .replace(path: '/reset-password', query: null, fragment: null)
+        .toString();
   }
 
   @override
@@ -100,6 +193,24 @@ class _AuthScreenState extends State<AuthScreen> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xl),
+                    if (_isSignUp) ...[
+                      TextFormField(
+                        controller: _nameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Nom',
+                          hintText: 'Votre nom',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Le nom est obligatoire';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -147,7 +258,16 @@ class _AuthScreenState extends State<AuthScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: AppSpacing.lg),
+                    if (!_isSignUp) ...[
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _loading ? null : _forgotPassword,
+                          child: const Text('Mot de passe oublié ?'),
+                        ),
+                      ),
+                    ] else
+                      const SizedBox(height: AppSpacing.sm),
                     FilledButton(
                       onPressed: _loading ? null : _submit,
                       child: _loading

@@ -50,6 +50,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Deep link de réinitialisation de mot de passe :
+                 carnetadresses://reset-password. Supabase y redirige après le
+                 clic sur le lien reçu par email. Désactive aussi le deep
+                 linking intégré de Flutter, sinon l'URL brute est interprétée
+                 comme une route go_router et provoque une page introuvable. -->
+            <meta-data
+                android:name="flutter_deeplinking_enabled"
+                android:value="false" />
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="carnetadresses" android:host="reset-password"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

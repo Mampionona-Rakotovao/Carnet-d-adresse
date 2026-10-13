@@ -1,3 +1,5 @@
+import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router.dart';
@@ -5,13 +7,51 @@ import 'core/supabase_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
 
+/// Schéma d'URL déclaré côté Android (voir AndroidManifest.xml) et utilisé
+/// comme `redirectTo` pour la réinitialisation de mot de passe.
+const _mobileScheme = 'carnetadresses';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Le lien de réinitialisation reçu par email ouvre l'app sur
+  // /reset-password. Sur le web, Supabase consomme le code pendant
+  // initialize() et émet l'événement passwordRecovery avant que le routeur
+  // ne s'y abonne : on mémorise donc l'intention dès maintenant.
+  if (kIsWeb && Uri.base.path == '/reset-password') {
+    markPasswordRecovery();
+  }
+
   // Chargé avant runApp : le mode de thème persistant est connu dès la
   // première frame, pas de scintillement clair → sombre au démarrage.
   final prefs = await SharedPreferences.getInstance();
   await initSupabase();
+
+  // Sur mobile, le lien arrive sous forme de deep link. On le lit nous-mêmes,
+  // car l'événement passwordRecovery de Supabase est émis pendant
+  // initialize(), donc avant que le routeur ne s'y abonne.
+  if (!kIsWeb) {
+    final appLinks = AppLinks();
+    final initialLink = await appLinks.getInitialLink();
+    if (_isPasswordResetLink(initialLink)) markPasswordRecovery();
+
+    // App déjà lancée : le lien est reçu à chaud.
+    appLinks.uriLinkStream.listen((uri) {
+      if (_isPasswordResetLink(uri)) {
+        markPasswordRecovery();
+        router.refresh();
+      }
+    });
+  }
+
   runApp(MyApp(prefs: prefs));
+}
+
+/// Vrai si le lien correspond à la réinitialisation de mot de passe.
+bool _isPasswordResetLink(Uri? uri) {
+  if (uri == null) return false;
+  return uri.scheme == _mobileScheme &&
+      (uri.host == 'reset-password' || uri.path.contains('reset-password'));
 }
 
 class MyApp extends StatefulWidget {

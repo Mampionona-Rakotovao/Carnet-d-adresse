@@ -13,6 +13,9 @@ dependencies:
   # Backend / base de données
   supabase_flutter: ^2.5.6
 
+  # Ouverture des liens reçus par email (réinitialisation mot de passe)
+  app_links: ^7.2.1
+
   # Géolocalisation
   geolocator: ^13.0.1
   permission_handler: ^11.3.1
