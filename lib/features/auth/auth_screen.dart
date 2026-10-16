@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../ui/app_feedback.dart';
+import 'widgets/google_sign_in_button.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -277,6 +278,8 @@ class _AuthScreenState extends State<AuthScreen> {
                             )
                           : Text(_isSignUp ? "S'inscrire" : 'Se connecter'),
                     ),
+                    const SizedBox(height: AppSpacing.lg),
+                    const GoogleSignInButton(),
                     const SizedBox(height: AppSpacing.sm),
                     TextButton(
                       onPressed: _loading
