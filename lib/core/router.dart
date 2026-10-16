@@ -14,6 +14,7 @@ import '../features/address_detail/address_detail_screen.dart';
 import '../features/search/search_screen.dart';
 import '../features/favorites/favorites_screen.dart';
 import '../features/share/redeem_share_screen.dart';
+import '../features/share/shared_link_screen.dart';
 import '../models/address.dart';
 import 'app_scaffold.dart';
 
@@ -36,6 +37,10 @@ class GoRouterRefreshStream extends ChangeNotifier {
 /// le lien de récupération de mot de passe reçu par email. Force alors
 /// le passage par /reset-password avant toute autre navigation.
 bool _isPasswordRecovery = false;
+
+/// Lien partagé (/a/<token>) reçu alors que l'utilisateur n'était pas
+/// connecté. Il est rouvert automatiquement après la connexion.
+String? _pendingLocation;
 
 /// À appeler une fois le mot de passe mis à jour avec succès.
 void clearPasswordRecoveryFlag() => _isPasswordRecovery = false;
@@ -73,14 +78,19 @@ GoRouter _buildRouter() {
       if (_isPasswordRecovery) {
         return onResetPage ? null : '/reset-password';
       }
-      if (!loggedIn &&
-          !onLoginPage &&
-          !onConfirmPage &&
-          !onResetCodePage) {
+
+      if (!loggedIn && !onLoginPage && !onConfirmPage && !onResetCodePage) {
+        // On retient le lien partagé pour le rouvrir après la connexion.
+        if (state.matchedLocation.startsWith('/a/')) {
+          _pendingLocation = state.uri.toString();
+        }
         return '/login';
       }
+
       if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
-        return '/';
+        final pending = _pendingLocation;
+        _pendingLocation = null;
+        return pending ?? '/';
       }
       return null;
     },
@@ -129,6 +139,13 @@ GoRouter _buildRouter() {
             builder: (context, state) => const RedeemShareScreen(),
           ),
         ],
+      ),
+      // Lien partagé : https://mampionona-rakotovao.github.io/a/<token>
+      GoRoute(
+        path: '/a/:token',
+        builder: (context, state) => SharedLinkScreen(
+          token: state.pathParameters['token']!,
+        ),
       ),
       GoRoute(
         path: '/address/create',

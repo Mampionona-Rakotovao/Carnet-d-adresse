@@ -31,6 +31,9 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
     '24 heures': 1440,
   };
 
+  /// Domaine des App Links (voir AndroidManifest.xml et assetlinks.json).
+  static const _shareBaseUrl = 'https://mampionona-rakotovao.github.io/a/';
+
   String _selectedLabel = '1 heure';
   bool _creating = false;
   String? _error;
@@ -93,12 +96,13 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
   }
 
   Future<void> _shareToken(String token) async {
-    // On partage un code court plutôt qu'une URL (pas de domaine déployé
-    // pour ce MVP) : le destinataire le colle dans "Ouvrir un lien".
+    final link = '$_shareBaseUrl$token';
     await Share.share(
       "Voici l'adresse que je partage avec toi.\n"
-      "Ouvre l'app \"Carnet d'adresses\" → \"Ouvrir un lien\" et colle ce code :\n\n"
-      '$token',
+      "Appuie sur le lien pour l'ouvrir dans l'app Carnet d'adresses :\n\n"
+      '$link\n\n'
+      "(Si le lien ne s'ouvre pas, copie ce code dans "
+      "\"Ouvrir un lien\" : $token)",
     );
   }
 

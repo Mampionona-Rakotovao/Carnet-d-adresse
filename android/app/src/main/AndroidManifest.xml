@@ -1,27 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Supabase + tuiles OpenStreetMap. Présent aussi dans les manifestes
-         debug/profile, mais il doit être déclaré ici pour un build release. -->
+    <!-- Supabase + tuiles OpenStreetMap. -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
-    <!-- GPS : "capturer ma position" à la création d'une adresse.
-         FINE est obligatoire : Geolocator.getCurrentPosition() utilise
-         LocationAccuracy.best, qui échoue avec une autorisation "approximative". -->
+    <!-- GPS : "capturer ma position" à la création d'une adresse. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <!-- Photos des adresses et des repères. -->
     <uses-permission android:name="android.permission.CAMERA"/>
-    <!-- Android 13+ : inutile avec le sélecteur de photos système
-         (image_picker y passe par le Photo Picker), utile si permission_handler
-         est utilisé plus tard. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <!-- Android 12 et antérieurs uniquement. -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
-    <!-- Capteurs non obligatoires : l'app reste installable sur un appareil
-         sans GPS (l'utilisateur saisit alors les coordonnées à la main). -->
+    <!-- Capteurs non obligatoires. -->
     <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
@@ -38,50 +30,47 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"
+                />
+
+            <!-- Lancement normal de l'application. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep link de réinitialisation de mot de passe :
-                 carnetadresses://reset-password. Supabase y redirige après le
-                 clic sur le lien reçu par email. Désactive aussi le deep
-                 linking intégré de Flutter, sinon l'URL brute est interprétée
-                 comme une route go_router et provoque une page introuvable. -->
-            <meta-data
-                android:name="flutter_deeplinking_enabled"
-                android:value="false" />
+
+            <!-- Lien de secours du mot de passe oublié :
+                 carnetadresses://reset-password -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="carnetadresses" android:host="reset-password"/>
             </intent-filter>
-            <intent-filter>
+
+            <!-- App Link : les liens partagés
+                 https://mampionona-rakotovao.github.io/a/<id>
+                 ouvrent directement l'application. -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="carnetadresses" android:host="login-callback"/>
+                <data
+                    android:scheme="https"
+                    android:host="mampionona-rakotovao.github.io"
+                    android:pathPrefix="/a/"/>
             </intent-filter>
         </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
