@@ -1,201 +1,144 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/app_scaffold.dart';
-import '../../core/shared_with_me.dart';
+import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../models/shared_address.dart';
-import '../../ui/app_states.dart';
-import 'shared_address_tile.dart';
-import 'shared_address_view.dart';
 
-/// Liste des adresses reçues par lien et encore valides.
-///
-/// Rien n'est copié : la liste est recalculée côté serveur à chaque
-/// ouverture, et un lien révoqué ou expiré disparaît de lui-même au
-/// prochain rafraîchissement (RG20-RG22).
-///
-/// Un appui sur une entrée affiche l'adresse directement dans cet écran
-/// (mode détail), sans changer de page : la flèche de retour — ou le retour
-/// système — ramène à la liste.
+/// Adresses reçues par lien de partage et encore valides.
+/// Une adresse disparaît d'ici dès que le lien expire ou est révoqué.
 class SharedWithMeScreen extends StatefulWidget {
-  const SharedWithMeScreen({super.key, this.initial});
-
-  /// Entrée déjà choisie à l'ouverture, quand on arrive depuis la section
-  /// de l'accueil (`context.push('/shared', extra: entry)`).
-  final SharedAddressEntry? initial;
+  const SharedWithMeScreen({super.key});
 
   @override
   State<SharedWithMeScreen> createState() => _SharedWithMeScreenState();
 }
 
 class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
-  bool _loading = true;
-  Object? _error;
-  List<SharedAddressEntry> _items = [];
-  SharedAddressEntry? _selected;
-  Timer? _ticker;
+  late Future<List<Map<String, dynamic>>> _future;
 
   @override
   void initState() {
     super.initState();
-    _selected = widget.initial;
-    _load();
-    // Les libellés du compte à rebours vieillissent : sans ce ticker, un lien
-    // qui expire pendant que l'écran est ouvert afficherait encore « Expire
-    // dans 5 min » dix minutes plus tard.
-    _ticker = Timer.periodic(const Duration(seconds: 30), (_) => _onTick());
+    _future = _load();
   }
 
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
+  Future<List<Map<String, dynamic>>> _load() async {
+    final rows = await supabase.rpc('list_shared_with_me');
+    return (rows as List).cast<Map<String, dynamic>>();
   }
 
-  void _onTick() {
-    if (_items.isEmpty) return;
-    if (_items.any((entry) => entry.isExpired)) {
-      // Le serveur a maintenant de quoi retirer les liens morts.
-      _load(silent: true);
-      return;
-    }
-    if (mounted) setState(() {});
-  }
-
-  void _open(SharedAddressEntry entry) => setState(() => _selected = entry);
-
-  void _back() {
-    setState(() => _selected = null);
-    // Le lien vient d'être consulté : il a pu expirer ou être révoqué depuis
-    // le dernier chargement de la liste.
-    _load(silent: true);
-  }
-
-  Future<void> _load({bool silent = false}) async {
-    if (!silent) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+  Future<void> _refresh() async {
+    setState(() => _future = _load());
     try {
-      final items = await fetchSharedWithMe();
-      if (!mounted) return;
-      setState(() {
-        _items = items;
-        _error = null;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      // Un rafraîchissement silencieux qui échoue laisse la liste affichée.
-      if (silent) return;
-      setState(() {
-        _error = e;
-        _loading = false;
-      });
+      await _future;
+    } catch (_) {
+      // L'erreur est déjà affichée par le FutureBuilder.
     }
   }
 
-  PreferredSizeWidget _appBar() {
-    final selected = _selected;
-    if (selected != null) {
-      final theme = Theme.of(context);
-      return AppBar(
-        // Explicitement construite : le BackButton automatique démonterait
-        // tout l'écran /shared au lieu de fermer le mode détail.
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Retour à la liste',
-          onPressed: _back,
-        ),
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              selected.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              selected.expiryLabel,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      );
+  String _expiryLabel(DateTime expiresAt) {
+    final remaining = expiresAt.difference(DateTime.now());
+    if (remaining.isNegative) return 'Expiré';
+    if (remaining.inDays >= 1) return 'Expire dans ${remaining.inDays} j';
+    if (remaining.inHours >= 1) {
+      return 'Expire dans ${remaining.inHours} h ${remaining.inMinutes % 60} min';
     }
-
-    return AppBar(
-      title: const Text('Partagées avec moi'),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          tooltip: 'Rafraîchir',
-          onPressed: _loading ? null : _load,
-        ),
-      ],
-    );
+    return 'Expire dans ${remaining.inMinutes} min';
   }
 
   @override
   Widget build(BuildContext context) {
-    final selected = _selected;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
-    // Retour système (gesture ou bouton Android) : ferme d'abord le mode
-    // détail, ne quitte la liste qu'ensuite.
-    return PopScope(
-      canPop: selected == null,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _back();
-      },
-      child: Scaffold(
-        appBar: _appBar(),
-        body: selected != null
-            ? SharedAddressView(token: selected.token)
-            : _loading
-                ? const AppLoading()
-                : _error != null
-                    ? AppErrorState(
-                        error: _error,
-                        title: 'Impossible de charger vos adresses partagées',
-                        onRetry: _load,
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _load,
-                        child: _items.isEmpty
-                            ? AppEmptyState(
-                                icon: Icons.group_add_outlined,
-                                title: 'Aucune adresse partagée avec toi',
-                                message:
-                                    'Les adresses reçues par lien apparaissent '
-                                    'ici tant que le lien est valide.',
-                                actionLabel: 'Ouvrir un lien',
-                                actionIcon: Icons.link,
-                                onAction: () => context.push('/share/open'),
-                              )
-                            : ListView.builder(
-                                padding: AppSpacing.list,
-                                itemCount: _items.length,
-                                itemBuilder: (context, index) => Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: index < _items.length - 1
-                                        ? AppSpacing.sm
-                                        : 0,
-                                  ),
-                                  child: SharedAddressTile(
-                                    entry: _items[index],
-                                    onTap: () => _open(_items[index]),
-                                  ),
-                                ),
-                              ),
-                      ),
-        bottomNavigationBar: ShellNavigationBar.of(context),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Partagées avec moi')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return ListView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                children: [
+                  const SizedBox(height: 80),
+                  Icon(Icons.error_outline, size: 48, color: scheme.error),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    'Impossible de charger les adresses partagées.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Center(
+                    child: OutlinedButton(
+                      onPressed: _refresh,
+                      child: const Text('Réessayer'),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final rows = snapshot.data ?? [];
+
+            if (rows.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                children: [
+                  const SizedBox(height: 80),
+                  Icon(Icons.inbox_outlined, size: 56, color: scheme.outline),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    'Aucune adresse partagée pour le moment.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Les adresses reçues par lien apparaissent ici tant que '
+                    'le lien est valide.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              itemCount: rows.length,
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                final expiresAt = DateTime.parse(row['expires_at'] as String);
+                final sharedBy = row['shared_by_name'] as String?;
+                final locality = row['locality'] as String?;
+
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.share_location_outlined),
+                    title: Text(row['name'] as String),
+                    subtitle: Text([
+                      if (locality != null && locality.isNotEmpty) locality,
+                      if (sharedBy != null) 'Partagé par $sharedBy',
+                      _expiryLabel(expiresAt),
+                    ].join(' · ')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () async {
+                      await context.push('/shared/${row['share_link_id']}');
+                      // Le lien a pu être révoqué entre-temps : on recharge.
+                      if (mounted) _refresh();
+                    },
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

@@ -8,7 +8,8 @@ import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 
-/// Écran ouvert par un lien partagé : https://mampionona-rakotovao.github.io/a/<token>
+/// Écran ouvert par un lien partagé :
+/// https://mampionona-rakotovao.github.io/a/<token>
 /// La vérification (existence, expiration, révocation) reste côté serveur
 /// via la fonction SQL get_shared_address_full.
 class SharedLinkScreen extends StatefulWidget {
@@ -112,7 +113,8 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
             Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.md),
             FilledButton(onPressed: _load, child: const Text('Réessayer')),
-            TextButton(onPressed: _goHome, child: const Text("Retour à l'accueil")),
+            TextButton(
+                onPressed: _goHome, child: const Text("Retour à l'accueil")),
           ],
         ),
       ),
@@ -126,7 +128,8 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
         children: [
           const Icon(Icons.check_circle, color: Colors.green, size: 20),
           const SizedBox(width: 8),
-          Expanded(child: Text(address.name, style: theme.textTheme.titleLarge)),
+          Expanded(
+              child: Text(address.name, style: theme.textTheme.titleLarge)),
         ],
       ),
       const SizedBox(height: AppSpacing.xs),
@@ -141,7 +144,8 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
       ],
       Row(
         children: [
-          Icon(address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
+          Icon(
+              address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
               size: 18),
           const SizedBox(width: 6),
           Text(address.gpsType == GpsType.exact

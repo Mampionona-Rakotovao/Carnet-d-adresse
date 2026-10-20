@@ -14,7 +14,9 @@ import '../features/address_detail/address_detail_screen.dart';
 import '../features/search/search_screen.dart';
 import '../features/favorites/favorites_screen.dart';
 import '../features/share/redeem_share_screen.dart';
+import '../features/share/shared_with_me_screen.dart';
 import '../features/share/shared_link_screen.dart';
+import '../features/share/shared_address_screen.dart';
 import '../models/address.dart';
 import 'app_scaffold.dart';
 
@@ -141,10 +143,21 @@ GoRouter _buildRouter() {
         ],
       ),
       // Lien partagé : https://mampionona-rakotovao.github.io/a/<token>
+            // Lien partagé : https://mampionona-rakotovao.github.io/a/<token>
       GoRoute(
         path: '/a/:token',
         builder: (context, state) => SharedLinkScreen(
           token: state.pathParameters['token']!,
+        ),
+      ),
+      GoRoute(
+        path: '/shared',
+        builder: (context, state) => const SharedWithMeScreen(),
+      ),
+      GoRoute(
+        path: '/shared/:linkId',
+        builder: (context, state) => SharedAddressScreen(
+          linkId: state.pathParameters['linkId']!,
         ),
       ),
       GoRoute(

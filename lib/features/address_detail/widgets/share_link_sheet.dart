@@ -96,15 +96,12 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
   }
 
   Future<void> _shareToken(String token) async {
-    final link = '$_shareBaseUrl$token';
-    await Share.share(
-      "Voici l'adresse que je partage avec toi.\n"
-      "Appuie sur le lien pour l'ouvrir dans l'app Carnet d'adresses :\n\n"
-      '$link\n\n'
-      "(Si le lien ne s'ouvre pas, copie ce code dans "
-      "\"Ouvrir un lien\" : $token)",
-    );
-  }
+  final link = '$_shareBaseUrl$token';
+  await Share.share(
+    "📍 Une adresse a été partagée avec toi sur Carnet d'adresses.\n\n"
+    "Appuie sur le lien pour l'ouvrir :\n$link",
+  );
+}
 
   Future<void> _revoke(ShareLink link) async {
     try {
