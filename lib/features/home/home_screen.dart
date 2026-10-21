@@ -59,19 +59,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   PreferredSizeWidget _appBar() => AppBar(
         title: const Text('Mes adresses'),
-        // Les deux actions secondaires sont regroupées dans un menu : l'AppBar
-        // garde la place pour le titre au lieu de la partager avec des icônes
-        // de 48 px qui n'apportent rien tant qu'on ne les cherche pas.
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Menu',
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              // Les noms de mode (`system`, `light`, `dark`) servent de valeur
-              // d'entrée de menu : il n'y a pas de collision avec les autres.
               final mode = ThemeMode.values.asNameMap()[value];
               if (mode != null) {
                 ThemeModeScope.set(context, mode);
+              } else if (value == 'shared_with_me') {
+                context.push('/shared');
               } else if (value == 'open_link') {
                 context.push('/share/open');
               } else if (value == 'logout') {
@@ -90,8 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
-                // Choix du thème : clair, sombre ou suivi du système. La coche
-                // marque le mode courant ; le choix est mémorisé (Préférences).
                 for (final mode in ThemeModeController.choices)
                   CheckedPopupMenuItem(
                     value: mode.name,
@@ -109,6 +104,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'shared_with_me',
+                  child: ListTile(
+                    leading: Icon(Icons.share_location),
+                    title: Text('Partagées avec moi'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'open_link',
                   child: ListTile(
@@ -143,8 +146,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _addressesStream,
       builder: (context, snapshot) {
-        // L'écran est monté une seule fois : le `Scaffold` ne dépend pas de
-        // l'état du flux, seul son `body` change.
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _shell(const AppLoading());
         }
@@ -171,16 +172,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   onAction: () => context.push('/address/create'),
                   secondaryAction: Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.sm),
-                    child: Text(
-                      'Connecté en tant que ${user?.email ?? "?"}',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall,
+                    child: Column(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => context.push('/shared'),
+                          icon: const Icon(Icons.share_location),
+                          label: const Text('Partagées avec moi'),
+                        ),
+                        Text(
+                          'Connecté en tant que ${user?.email ?? "?"}',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ),
                 )
               : ListView(
-                  // Réserve basse doublée : sans elle, la dernière carte passe
-                  // sous le bouton flottant et devient impossible à toucher.
                   padding: AppSpacing.list.copyWith(bottom: AppSpacing.xxl * 2),
                   children: [
                     Column(
@@ -197,12 +205,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
+                    Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: scheme.primaryContainer,
+                          foregroundColor: scheme.onPrimaryContainer,
+                          child: const Icon(Icons.share_location),
+                        ),
+                        title: const Text('Partagées avec moi'),
+                        subtitle: const Text(
+                            "Adresses reçues par lien, tant qu'il est valide"),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/shared'),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
                     SectionHeader(
                       title: 'Adresses récentes',
                       icon: Icons.access_time_outlined,
                       trailing: TextButton(
-                        // `go` et non `push` : /search est un onglet du shell,
-                        // le pousser y empilerait une seconde barre de navigation.
                         onPressed: () => context.go('/search'),
                         child: const Text('Rechercher'),
                       ),
@@ -220,8 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     }),
                   ],
                 ),
-          // Masqué quand la liste est vide : l'état vide affiche déjà un bouton
-          // « Ajouter une adresse » en pleine largeur.
           fab: addresses.isEmpty
               ? null
               : FloatingActionButton(
@@ -234,8 +253,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Squelette commun à tous les états de l'écran, pour que la barre de
-  /// navigation reste présente pendant le chargement comme en erreur.
   Widget _shell(Widget body, {Widget? fab}) => Scaffold(
         appBar: _appBar(),
         body: body,

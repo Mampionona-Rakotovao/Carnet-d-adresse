@@ -16,7 +16,6 @@ import '../features/favorites/favorites_screen.dart';
 import '../features/share/redeem_share_screen.dart';
 import '../features/share/shared_with_me_screen.dart';
 import '../features/share/shared_link_screen.dart';
-import '../features/share/shared_address_screen.dart';
 import '../models/address.dart';
 import 'app_scaffold.dart';
 
@@ -84,7 +83,7 @@ GoRouter _buildRouter() {
       if (!loggedIn && !onLoginPage && !onConfirmPage && !onResetCodePage) {
         // On retient le lien partagé pour le rouvrir après la connexion.
         if (state.matchedLocation.startsWith('/a/')) {
-          _pendingLocation = state.uri.toString();
+          _pendingLocation = state.uri.path;
         }
         return '/login';
       }
@@ -119,10 +118,8 @@ GoRouter _buildRouter() {
       ),
       ShellRoute(
         builder: (context, state, child) => AppScaffold(child: child),
-        // Trois onglets racine. « Ouvrir un lien » en fait partie : c'est un
-        // écran de navigation atteint depuis l'accueil, pas une tâche à part
-        // entière — l'utilisateur doit pouvoir changer d'onglet sans repasser
-        // par l'accueil.
+        // Onglets racine. « Ouvrir un lien » en fait partie : l'utilisateur
+        // doit pouvoir changer d'onglet sans repasser par l'accueil.
         routes: [
           GoRoute(
             path: '/',
@@ -143,22 +140,16 @@ GoRouter _buildRouter() {
         ],
       ),
       // Lien partagé : https://mampionona-rakotovao.github.io/a/<token>
-            // Lien partagé : https://mampionona-rakotovao.github.io/a/<token>
       GoRoute(
         path: '/a/:token',
         builder: (context, state) => SharedLinkScreen(
           token: state.pathParameters['token']!,
         ),
       ),
+      // Adresses reçues par lien, encore valides.
       GoRoute(
         path: '/shared',
         builder: (context, state) => const SharedWithMeScreen(),
-      ),
-      GoRoute(
-        path: '/shared/:linkId',
-        builder: (context, state) => SharedAddressScreen(
-          linkId: state.pathParameters['linkId']!,
-        ),
       ),
       GoRoute(
         path: '/address/create',

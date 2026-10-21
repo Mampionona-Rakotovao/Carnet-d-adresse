@@ -54,6 +54,14 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
         return;
       }
 
+      // Enregistre l'ouverture : l'adresse apparaîtra dans « Partagées avec
+      // moi » tant que le lien est valide. Une erreur ici ne doit pas
+      // empêcher l'affichage de l'adresse.
+      try {
+        await supabase
+            .rpc('record_share_open', params: {'p_token': widget.token});
+      } catch (_) {}
+
       final data = result as Map<String, dynamic>;
       final address = Address.fromJson(data['address'] as Map<String, dynamic>);
       final landmarks = (data['landmarks'] as List)
