@@ -63,13 +63,14 @@ AS $$
 DECLARE
   v_link_id uuid;
   v_user_id uuid := auth.uid();
+  v_created_by uuid;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Authentification requise';
   END IF;
 
-  SELECT id
-    INTO v_link_id
+  SELECT id, created_by
+    INTO v_link_id, v_created_by
   FROM public.share_links
   WHERE token = p_token
     AND status = 'ACTIVE'
@@ -77,6 +78,11 @@ BEGIN
   FOR UPDATE;
 
   IF v_link_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- Ne pas enregistrer si le propriétaire ouvre son propre lien
+  IF v_created_by = v_user_id THEN
     RETURN;
   END IF;
 
@@ -131,6 +137,7 @@ BEGIN
   JOIN public.addresses a   ON a.id  = sl.address_id
   LEFT JOIN public.profiles p ON p.id = sl.created_by
   WHERE slu.used_by = v_user_id
+    AND sl.created_by != v_user_id
     AND sl.status    = 'ACTIVE'
     AND sl.expires_at > now();
 

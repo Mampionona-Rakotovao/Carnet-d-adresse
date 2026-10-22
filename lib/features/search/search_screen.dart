@@ -177,11 +177,25 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 SegmentedButton<SearchScope>(
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                  ),
                   segments: const [
-                    ButtonSegment(value: SearchScope.all, label: Text('Tout')),
-                    ButtonSegment(value: SearchScope.mine, label: Text('Mes adresses')),
-                    ButtonSegment(value: SearchScope.public, label: Text('Publiques')),
-                    ButtonSegment(value: SearchScope.sharedWithMe, label: Text('Partagées')),
+                    ButtonSegment(
+                      value: SearchScope.all,
+                      label: Text('Tout'),
+                    ),
+                    ButtonSegment(
+                      value: SearchScope.mine,
+                      label: Text('Mes adresses'),
+                    ),
+                    ButtonSegment(
+                      value: SearchScope.public,
+                      label: Text('Publiques'),
+                    ),
                   ],
                   selected: {_scope},
                   onSelectionChanged: (s) {
