@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/app_scaffold.dart';
+import '../../core/shared_with_me.dart';
 import '../../core/supabase_client.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
@@ -53,6 +55,20 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
         setState(() => _error =
             'Lien invalide, expiré ou révoqué. Vérifie le code ou demande un nouveau lien au propriétaire.');
         return;
+      }
+
+      // Enregistrer l'ouverture pour qu'elle apparaisse dans "Partagées avec moi"
+      final ok = await recordShareOpen(token);
+      if (mounted && ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Adresse ajoutée à « Partagées avec moi »'),
+            action: SnackBarAction(
+              label: 'Voir',
+              onPressed: () => context.push('/shared'),
+            ),
+          ),
+        );
       }
 
       final data = result as Map<String, dynamic>;

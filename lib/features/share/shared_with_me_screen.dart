@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/supabase_client.dart';
+import '../../core/shared_with_me.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../models/shared_address.dart';
 
 /// Adresses reçues par lien et encore valides. Rien n'est copié :
 /// la liste est recalculée côté serveur à chaque ouverture.
@@ -15,12 +18,22 @@ class SharedWithMeScreen extends StatefulWidget {
 class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
   bool _loading = true;
   String? _error;
-  List<Map<String, dynamic>> _items = [];
+  List<SharedAddressEntry> _items = [];
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -29,8 +42,7 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
       _error = null;
     });
     try {
-      final result = await supabase.rpc('get_my_shared_addresses');
-      final list = (result as List? ?? []).cast<Map<String, dynamic>>();
+      final list = await fetchSharedWithMe();
       if (mounted) setState(() => _items = list);
     } catch (e) {
       if (mounted) setState(() => _error = 'Erreur : $e');
@@ -39,17 +51,9 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
     }
   }
 
-  String _remaining(String expiresAtIso) {
-    final diff =
-        DateTime.parse(expiresAtIso).difference(DateTime.now().toUtc());
-    if (diff.inMinutes < 1) return "Expire à l'instant";
-    if (diff.inHours < 1) return 'Expire dans ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Expire dans ${diff.inHours} h';
-    return 'Expire dans ${diff.inDays} j';
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Partagées avec moi'),
@@ -102,21 +106,33 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                           itemCount: _items.length,
                           itemBuilder: (context, i) {
                             final item = _items[i];
-                            final a = item['address'] as Map<String, dynamic>;
                             return Card(
                               child: ListTile(
-                                leading: const CircleAvatar(
-                                  child: Icon(Icons.share_location),
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      theme.colorScheme.primaryContainer,
+                                  foregroundColor:
+                                      theme.colorScheme.onPrimaryContainer,
+                                  backgroundImage: item.photoUrl != null
+                                      ? NetworkImage(item.photoUrl!)
+                                      : null,
+                                  child: item.photoUrl == null
+                                      ? const Icon(Icons.share_location)
+                                      : null,
                                 ),
-                                title: Text(a['name'] as String? ?? ''),
+                                title: Text(item.name),
                                 subtitle: Text([
-                                  if (a['locality'] != null)
-                                    a['locality'] as String,
-                                  _remaining(item['expires_at'] as String),
+                                  if (item.locality != null &&
+                                      item.locality!.isNotEmpty)
+                                    item.locality!,
+                                  if (item.sharedByName != null &&
+                                      item.sharedByName!.isNotEmpty)
+                                    'Partagé par ${item.sharedByName}',
+                                  item.expiryLabel,
                                 ].join(' · ')),
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () async {
-                                  await context.push('/a/${item['token']}');
+                                  await context.push('/a/${item.token}');
                                   if (mounted) _load();
                                 },
                               ),

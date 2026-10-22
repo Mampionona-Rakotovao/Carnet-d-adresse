@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import '../../core/shared_with_me.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
@@ -57,10 +58,7 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
       // Enregistre l'ouverture : l'adresse apparaîtra dans « Partagées avec
       // moi » tant que le lien est valide. Une erreur ici ne doit pas
       // empêcher l'affichage de l'adresse.
-      try {
-        await supabase
-            .rpc('record_share_open', params: {'p_token': widget.token});
-      } catch (_) {}
+      await recordShareOpen(widget.token);
 
       final data = result as Map<String, dynamic>;
       final address = Address.fromJson(data['address'] as Map<String, dynamic>);

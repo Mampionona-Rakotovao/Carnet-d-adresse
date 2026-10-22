@@ -12,3 +12,15 @@ Future<List<SharedAddressEntry>> fetchSharedWithMe() async {
   final rows = (result as List? ?? []).cast<Map<String, dynamic>>();
   return rows.map(SharedAddressEntry.fromJson).toList();
 }
+
+/// Enregistre l'ouverture d'un lien partagé pour l'utilisateur connecté.
+/// Retourne true si l'enregistrement a réussi (idempotent côté SQL).
+/// Ne lance jamais d'exception pour ne pas casser l'affichage de l'adresse.
+Future<bool> recordShareOpen(String token) async {
+  try {
+    await supabase.rpc('record_share_open', params: {'p_token': token});
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
