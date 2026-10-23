@@ -1,6 +1,28 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../core/theme/app_spacing.dart';
+
+AudioPlayer? _notificationPlayer;
+
+/// Clé du messager racine, utilisée pour afficher une notification hors d'un
+/// écran précis (par exemple depuis un événement Realtime reçu par le
+/// propriétaire d'un lien partagé).
+final GlobalKey<ScaffoldMessengerState> appMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
+/// Joue le son de notification à l'ouverture d'un lien partagé.
+/// Le son est un bonus : une erreur de lecture ne doit jamais interrompre
+/// l'action en cours.
+Future<void> playNotificationSound() async {
+  try {
+    final player = _notificationPlayer ??= AudioPlayer();
+    await player.stop();
+    await player.play(AssetSource('sounds/notification.wav'));
+  } catch (_) {
+    // Ignoré volontairement (web sans interaction, volume coupé, etc.).
+  }
+}
 
 /// Traduit une exception technique en un message que l'utilisateur comprend.
 ///
@@ -8,7 +30,8 @@ import '../core/theme/app_spacing.dart';
 /// constraint », « PostgrestException … ») sont incompréhensibles et font
 /// perdre confiance dans l'application. On affiche donc une phrase simple,
 /// et le détail technique reste réservé au mode debug.
-String friendlyErrorMessage(Object error, {String fallback = 'Une erreur est survenue. Réessayez.'}) {
+String friendlyErrorMessage(Object error,
+    {String fallback = 'Une erreur est survenue. Réessayez.'}) {
   final raw = error.toString();
   final text = raw.toLowerCase();
 
@@ -28,7 +51,8 @@ String friendlyErrorMessage(Object error, {String fallback = 'Une erreur est sur
   if (text.contains('invalid login credentials')) {
     return 'Email ou mot de passe incorrect.';
   }
-  if (text.contains('user already registered') || text.contains('already been registered')) {
+  if (text.contains('user already registered') ||
+      text.contains('already been registered')) {
     return 'Un compte existe déjà avec cet email. Essayez de vous connecter.';
   }
   if (text.contains('email not confirmed')) {
@@ -37,7 +61,8 @@ String friendlyErrorMessage(Object error, {String fallback = 'Une erreur est sur
   if (text.contains('password should be at least')) {
     return 'Le mot de passe doit contenir au moins 6 caractères.';
   }
-  if (text.contains('unable to validate email') || text.contains('invalid email')) {
+  if (text.contains('unable to validate email') ||
+      text.contains('invalid email')) {
     return "Cette adresse email n'est pas valide.";
   }
   if (text.contains('too many requests') || text.contains('rate limit')) {
@@ -45,7 +70,8 @@ String friendlyErrorMessage(Object error, {String fallback = 'Une erreur est sur
   }
 
   // --- Base de données -------------------------------------------------
-  if (text.contains('row-level security') || text.contains('row level security')) {
+  if (text.contains('row-level security') ||
+      text.contains('row level security')) {
     return "Vous n'avez pas les droits nécessaires pour cette action.";
   }
   if (text.contains('duplicate key')) {
@@ -57,7 +83,8 @@ String friendlyErrorMessage(Object error, {String fallback = 'Une erreur est sur
   if (text.contains('foreign key') || text.contains('violates foreign key')) {
     return "Cette action est impossible : des données liées à cet élément existent encore.";
   }
-  if (text.contains('invalid input syntax') || text.contains('could not parse')) {
+  if (text.contains('invalid input syntax') ||
+      text.contains('could not parse')) {
     return "Une des informations saisies n'est pas valide.";
   }
 
@@ -75,8 +102,7 @@ String friendlyErrorMessage(Object error, {String fallback = 'Une erreur est sur
 
 /// Détail technique, affiché uniquement en développement pour aider au
 /// diagnostic sans jamais polluer l'interface en production.
-String? debugErrorDetail(Object error) =>
-    kDebugMode ? error.toString() : null;
+String? debugErrorDetail(Object error) => kDebugMode ? error.toString() : null;
 
 enum AppMessageKind { info, success, error, warning }
 
@@ -112,9 +138,30 @@ abstract final class AppSnack {
     String? actionLabel,
     VoidCallback? onAction,
     Duration duration = const Duration(seconds: 4),
+    bool sound = false,
+  }) =>
+      _showOn(
+        ScaffoldMessenger.maybeOf(context),
+        message,
+        kind: kind,
+        actionLabel: actionLabel,
+        onAction: onAction,
+        duration: duration,
+        sound: sound,
+      );
+
+  static void _showOn(
+    ScaffoldMessengerState? messenger,
+    String message, {
+    required AppMessageKind kind,
+    String? actionLabel,
+    VoidCallback? onAction,
+    Duration duration = const Duration(seconds: 4),
+    bool sound = false,
   }) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
+
+    if (sound) playNotificationSound();
 
     messenger
       ..clearSnackBars()
@@ -123,7 +170,7 @@ abstract final class AppSnack {
           duration: duration,
           content: Row(
             children: [
-              Icon(kind.icon, color: kind.color(context), size: 20),
+              Icon(kind.icon, color: kind.color(messenger.context), size: 20),
               const SizedBox(width: AppSpacing.sm),
               Expanded(child: Text(message)),
             ],
@@ -138,8 +185,53 @@ abstract final class AppSnack {
   static void info(BuildContext context, String message) =>
       _show(context, message, kind: AppMessageKind.info);
 
-  static void success(BuildContext context, String message) =>
-      _show(context, message, kind: AppMessageKind.success);
+  static void success(
+    BuildContext context,
+    String message, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) =>
+      _show(
+        context,
+        message,
+        kind: AppMessageKind.success,
+        actionLabel: actionLabel,
+        onAction: onAction,
+      );
+
+  /// Notification d'ouverture d'un lien partagé : message de réussite,
+  /// action facultative et son d'alerte pour attirer l'attention.
+  static void notification(
+    BuildContext context,
+    String message, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) =>
+      _show(
+        context,
+        message,
+        kind: AppMessageKind.success,
+        actionLabel: actionLabel,
+        onAction: onAction,
+        sound: true,
+      );
+
+  /// Variante utilisée quand aucun [BuildContext] d'écran n'est disponible
+  /// (événement Realtime reçu par le propriétaire d'un lien partagé).
+  static void notificationOn(
+    ScaffoldMessengerState? messenger,
+    String message, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) =>
+      _showOn(
+        messenger,
+        message,
+        kind: AppMessageKind.success,
+        actionLabel: actionLabel,
+        onAction: onAction,
+        sound: true,
+      );
 
   static void warning(BuildContext context, String message) =>
       _show(context, message, kind: AppMessageKind.warning);
@@ -151,7 +243,8 @@ abstract final class AppSnack {
     if (detail != null) debugPrint('AppSnack.error → $detail');
     _show(
       context,
-      friendlyErrorMessage(error, fallback: fallback ?? 'Une erreur est survenue. Réessayez.'),
+      friendlyErrorMessage(error,
+          fallback: fallback ?? 'Une erreur est survenue. Réessayez.'),
       kind: AppMessageKind.error,
     );
   }

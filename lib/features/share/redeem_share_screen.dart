@@ -9,6 +9,7 @@ import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_feedback.dart';
 
 /// Écran où un destinataire colle un code/lien de partage reçu.
 /// Toute la vérification (existence, expiration, révocation) se fait
@@ -60,14 +61,11 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
       // Enregistrer l'ouverture pour qu'elle apparaisse dans "Partagées avec moi"
       final ok = await recordShareOpen(token);
       if (mounted && ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Adresse ajoutée à « Partagées avec moi »'),
-            action: SnackBarAction(
-              label: 'Voir',
-              onPressed: () => context.push('/shared'),
-            ),
-          ),
+        AppSnack.success(
+          context,
+          'Adresse ajoutée à « Partagées avec moi »',
+          actionLabel: 'Voir',
+          onAction: () => context.push('/shared'),
         );
       }
 
@@ -148,7 +146,8 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
           const Icon(Icons.check_circle, color: Colors.green, size: 20),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(address.name, style: Theme.of(context).textTheme.titleLarge),
+            child: Text(address.name,
+                style: Theme.of(context).textTheme.titleLarge),
           ),
         ],
       ),
@@ -164,9 +163,12 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
       ],
       Row(
         children: [
-          Icon(address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route, size: 18),
+          Icon(address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
+              size: 18),
           const SizedBox(width: 6),
-          Text(address.gpsType == GpsType.exact ? 'Position exacte' : "Point d'accès"),
+          Text(address.gpsType == GpsType.exact
+              ? 'Position exacte'
+              : "Point d'accès"),
         ],
       ),
       const SizedBox(height: AppSpacing.sm),
@@ -191,7 +193,9 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
                     width: 40,
                     height: 40,
                     child: Icon(
-                      address.gpsType == GpsType.exact ? Icons.location_on : Icons.flag,
+                      address.gpsType == GpsType.exact
+                          ? Icons.location_on
+                          : Icons.flag,
                       color: Colors.red,
                       size: 34,
                     ),
@@ -203,7 +207,6 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
         ),
       ),
       const SizedBox(height: AppSpacing.lg),
-
       if (_landmarks.isNotEmpty) ...[
         const Divider(),
         Text('Repères', style: Theme.of(context).textTheme.titleMedium),
@@ -211,7 +214,8 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
         ..._landmarks.map((l) => Card(
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
+                  backgroundImage:
+                      l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
                   child: l.photoUrl == null ? const Icon(Icons.place) : null,
                 ),
                 title: Text(l.name),
@@ -220,10 +224,10 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
             )),
         const SizedBox(height: AppSpacing.xs),
       ],
-
       if (_steps.isNotEmpty) ...[
         const Divider(),
-        Text('Étapes du trajet', style: Theme.of(context).textTheme.titleMedium),
+        Text('Étapes du trajet',
+            style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.xs),
         ..._steps.map((s) => Card(
               child: ListTile(

@@ -3,9 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router.dart';
+import 'core/share_notifications.dart';
 import 'core/supabase_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_mode_controller.dart';
+import 'ui/app_feedback.dart';
 
 /// Schéma d'URL déclaré côté Android (voir AndroidManifest.xml) et utilisé
 /// comme `redirectTo` pour la réinitialisation de mot de passe.
@@ -26,6 +28,7 @@ Future<void> main() async {
   // première frame, pas de scintillement clair → sombre au démarrage.
   final prefs = await SharedPreferences.getInstance();
   await initSupabase();
+  initShareOpenNotifications();
 
   // Session enregistrée sur le téléphone mais expirée ou invalide (par
   // exemple après la suppression du compte côté Supabase) : on tente de la
@@ -106,6 +109,7 @@ class _AppView extends StatelessWidget {
     return MaterialApp.router(
       title: "Carnet d'adresses",
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: appMessengerKey,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       // Lu via la portée : ce build est dépendant du contrôleur, donc tout

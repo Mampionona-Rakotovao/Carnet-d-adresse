@@ -150,8 +150,7 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
       ],
       Row(
         children: [
-          Icon(
-              address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
+          Icon(address.gpsType == GpsType.exact ? Icons.gps_fixed : Icons.route,
               size: 18),
           const SizedBox(width: 6),
           Text(address.gpsType == GpsType.exact
