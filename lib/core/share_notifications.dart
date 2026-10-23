@@ -61,11 +61,15 @@ Future<void> _notifyPendingShareOpens(String userId) async {
     final lastSeen =
         lastSeenRaw != null ? DateTime.tryParse(lastSeenRaw)?.toUtc() : null;
 
-    // La politique RLS `share_link_uses_select_owner` limite ces lignes aux
-    // ouvertures des liens appartenant à l'utilisateur connecté.
+    // La politique RLS autorise aussi un utilisateur à voir ses propres
+    // ouvertures, y compris celles de liens appartenant à d'autres personnes.
+    // On exclut donc explicitement l'utilisateur courant : sans ce filtre, le
+    // destinataire qui vient d'ouvrir le lien recevrait lui aussi la
+    // notification.
     final result = await supabase
         .from('share_link_uses')
         .select('share_link_id, used_by, used_at')
+        .neq('used_by', userId)
         .order('used_at', ascending: false);
 
     final rows = (result as List).cast<Map<String, dynamic>>();
@@ -73,6 +77,7 @@ Future<void> _notifyPendingShareOpens(String userId) async {
     DateTime? newest;
 
     for (final row in rows) {
+      if (row['used_by'] == userId) continue;
       final usedAt =
           DateTime.tryParse(row['used_at'] as String? ?? '')?.toUtc();
       if (usedAt == null) continue;
@@ -92,7 +97,20 @@ Future<void> _notifyPendingShareOpens(String userId) async {
       return;
     }
 
-    final message = await _buildMessage(pending);
+    // Double vérification : ne notifier que pour les liens réellement créés
+    // par cet utilisateur (le destinataire n'a donc jamais de notification).
+    final ownedAddressNames = await _ownedAddressNames(userId, pending);
+    pending.removeWhere(
+      (row) => !ownedAddressNames.containsKey(row['share_link_id']),
+    );
+    if (pending.isEmpty) {
+      if (newest != null) {
+        await prefs.setString(lastSeenKey, newest.toIso8601String());
+      }
+      return;
+    }
+
+    final message = await _buildMessage(pending, ownedAddressNames);
     await _showNotification(message);
 
     if (newest != null) {
@@ -105,44 +123,75 @@ Future<void> _notifyPendingShareOpens(String userId) async {
   }
 }
 
-Future<String> _buildMessage(List<Map<String, dynamic>> pending) async {
+/// Retourne, pour chaque lien possédé par [userId], le nom de l'adresse
+/// partagée. Les liens des autres utilisateurs sont ignorés.
+Future<Map<String, String?>> _ownedAddressNames(
+  String userId,
+  List<Map<String, dynamic>> pending,
+) async {
   final linkIds = pending
       .map((row) => row['share_link_id'])
       .whereType<String>()
       .toSet()
       .toList();
+  if (linkIds.isEmpty) return {};
 
-  final names = <String>{};
   try {
     final links = await supabase
         .from('share_links')
-        .select('id, address_id')
+        .select('id, created_by, address_id')
         .inFilter('id', linkIds);
 
-    final addressIds = (links as List)
-        .map((row) => row['address_id'])
-        .whereType<String>()
-        .toSet()
-        .toList();
-
-    if (addressIds.isNotEmpty) {
-      final addresses = await supabase
-          .from('addresses')
-          .select('name')
-          .inFilter('id', addressIds);
-      for (final row in addresses as List) {
-        final name = (row as Map<String, dynamic>)['name'] as String?;
-        if (name != null && name.isNotEmpty) names.add(name);
-      }
+    final linkToAddress = <String, String?>{};
+    for (final raw in links as List) {
+      final link = raw as Map<String, dynamic>;
+      if (link['created_by'] != userId) continue;
+      final id = link['id'] as String?;
+      if (id == null) continue;
+      linkToAddress[id] = link['address_id'] as String?;
     }
+
+    final addressIds =
+        linkToAddress.values.whereType<String>().toSet().toList();
+    if (addressIds.isEmpty) {
+      return linkToAddress.map((id, _) => MapEntry(id, null));
+    }
+
+    final addresses = await supabase
+        .from('addresses')
+        .select('id, name')
+        .inFilter('id', addressIds);
+
+    final namesById = <String, String?>{};
+    for (final raw in addresses as List) {
+      final address = raw as Map<String, dynamic>;
+      final id = address['id'] as String?;
+      if (id != null) namesById[id] = address['name'] as String?;
+    }
+
+    return linkToAddress.map(
+      (linkId, addressId) => MapEntry(linkId, namesById[addressId]),
+    );
   } catch (_) {
-    // Sans les noms, on garde un message générique.
+    return {};
   }
+}
+
+Future<String> _buildMessage(
+  List<Map<String, dynamic>> pending,
+  Map<String, String?> ownedAddressNames,
+) async {
+  final names = ownedAddressNames.values
+      .whereType<String>()
+      .where((name) => name.isNotEmpty)
+      .toSet();
 
   if (pending.length == 1) {
     final opener = await _openerName(pending.first['used_by'] as String?);
+    final linkId = pending.first['share_link_id'] as String?;
+    final name = linkId != null ? ownedAddressNames[linkId] : null;
     final address =
-        names.isNotEmpty ? '« ${names.first} »' : 'ton lien partagé';
+        name != null && name.isNotEmpty ? '« $name »' : 'ton lien partagé';
     return opener != null
         ? '$opener a ouvert $address'
         : 'Quelqu\'un a ouvert $address';

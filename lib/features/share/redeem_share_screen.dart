@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/app_scaffold.dart';
 import '../../core/shared_with_me.dart';
@@ -9,7 +8,6 @@ import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../ui/app_feedback.dart';
 
 /// Écran où un destinataire colle un code/lien de partage reçu.
 /// Toute la vérification (existence, expiration, révocation) se fait
@@ -58,16 +56,11 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
         return;
       }
 
-      // Enregistrer l'ouverture pour qu'elle apparaisse dans "Partagées avec moi"
-      final ok = await recordShareOpen(token);
-      if (mounted && ok) {
-        AppSnack.success(
-          context,
-          'Adresse ajoutée à « Partagées avec moi »',
-          actionLabel: 'Voir',
-          onAction: () => context.push('/shared'),
-        );
-      }
+      // Enregistrer l'ouverture pour qu'elle apparaisse dans "Partagées avec
+      // moi" et pour prévenir le propriétaire à sa prochaine connexion.
+      // Aucun message n'est affiché au destinataire : seul le propriétaire
+      // reçoit la notification.
+      await recordShareOpen(token);
 
       final data = result as Map<String, dynamic>;
       final address = Address.fromJson(data['address'] as Map<String, dynamic>);
