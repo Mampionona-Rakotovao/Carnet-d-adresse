@@ -30,27 +30,41 @@ class _HomeScreenState extends State<HomeScreen> {
         .order('created_at', ascending: false);
   }
 
-  Future<void> _confirmLogout() async {
+    Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Se déconnecter ?'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.logout, color: scheme.error),
+          title: const Text('Se déconnecter ?'),
+          content: const Text(
+            'Vous devrez vous reconnecter pour accéder à vos adresses.',
+            textAlign: TextAlign.center,
           ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.red,
-              backgroundColor: Colors.red.shade50,
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Annuler'),
+              ),
             ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Se déconnecter'),
-          ),
-        ],
-      ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Déconnexion'),
+              ),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed == true && mounted) {
       await supabase.auth.signOut();
@@ -67,10 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
               final mode = ThemeMode.values.asNameMap()[value];
               if (mode != null) {
                 ThemeModeScope.set(context, mode);
+              } else if (value == 'add_address') {
+                context.push('/address/create');
               } else if (value == 'shared_with_me') {
                 context.push('/shared');
-              } else if (value == 'open_link') {
-                context.push('/share/open');
               } else if (value == 'logout') {
                 _confirmLogout();
               }
@@ -105,18 +119,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(
-                  value: 'shared_with_me',
+                  value: 'add_address',
                   child: ListTile(
-                    leading: Icon(Icons.share_location),
-                    title: Text('Partagées avec moi'),
+                    leading: Icon(Icons.add),
+                    title: Text('Ajouter une adresse'),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
                 const PopupMenuItem(
-                  value: 'open_link',
+                  value: 'shared_with_me',
                   child: ListTile(
-                    leading: Icon(Icons.link),
-                    title: Text('Ouvrir un lien'),
+                    leading: Icon(Icons.share_location),
+                    title: Text('Partagées avec moi'),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -209,21 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    Card(
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: scheme.primaryContainer,
-                          foregroundColor: scheme.onPrimaryContainer,
-                          child: const Icon(Icons.share_location),
-                        ),
-                        title: const Text('Partagées avec moi'),
-                        subtitle: const Text(
-                            "Adresses reçues par lien, tant qu'il est valide"),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push('/shared'),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
                     SectionHeader(
                       title: 'Adresses récentes',
                       icon: Icons.access_time_outlined,
@@ -245,22 +244,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     }),
                   ],
                 ),
-          fab: addresses.isEmpty
-              ? null
-              : FloatingActionButton(
-                  onPressed: () => context.push('/address/create'),
-                  tooltip: 'Ajouter une adresse',
-                  child: const Icon(Icons.add),
-                ),
         );
       },
     );
   }
 
-  Widget _shell(Widget body, {Widget? fab}) => Scaffold(
+  Widget _shell(Widget body) => Scaffold(
         appBar: _appBar(),
         body: body,
-        floatingActionButton: fab,
         bottomNavigationBar: ShellNavigationBar.of(context),
       );
 }
