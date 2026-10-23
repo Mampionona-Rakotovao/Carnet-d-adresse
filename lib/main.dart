@@ -27,6 +27,18 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   await initSupabase();
 
+  // Session enregistrée sur le téléphone mais expirée ou invalide (par
+  // exemple après la suppression du compte côté Supabase) : on tente de la
+  // renouveler, sinon on déconnecte pour arriver proprement sur le login.
+  final session = supabase.auth.currentSession;
+  if (session != null && session.isExpired) {
+    try {
+      await supabase.auth.refreshSession();
+    } catch (_) {
+      await supabase.auth.signOut();
+    }
+  }
+
   // Sur mobile, le lien arrive sous forme de deep link. On le lit nous-mêmes,
   // car l'événement passwordRecovery de Supabase est émis pendant
   // initialize(), donc avant que le routeur ne s'y abonne.

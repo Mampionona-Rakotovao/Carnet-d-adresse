@@ -146,11 +146,15 @@ class _HomeScreenState extends State<HomeScreen> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _addressesStream,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _shell(const AppLoading());
-        }
-
         if (snapshot.hasError) {
+          final msg = snapshot.error.toString();
+          if (msg.contains('InvalidJWTToken') || msg.contains('JWT')) {
+            // Session expirée ou invalide : on repart sur le login.
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              await supabase.auth.signOut();
+            });
+            return _shell(const AppLoading());
+          }
           return _shell(
             AppErrorState(
                 error: snapshot.error, onRetry: () => setState(() {})),
