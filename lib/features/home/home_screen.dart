@@ -31,45 +31,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
     Future<void> _confirmLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final scheme = Theme.of(context).colorScheme;
-        return AlertDialog(
-          icon: Icon(Icons.logout, color: scheme.error),
-          title: const Text('Se déconnecter ?'),
-          content: const Text(
-            'Vous devrez vous reconnecter pour accéder à vos adresses.',
-            textAlign: TextAlign.center,
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      final scheme = Theme.of(context).colorScheme;
+      return AlertDialog(
+        icon: Icon(Icons.logout, color: scheme.error),
+        title: const Text('Se déconnecter ?', textAlign: TextAlign.center),
+        content: const Text(
+          'Vous devrez vous reconnecter pour accéder à vos adresses.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        actionsOverflowDirection: VerticalDirection.down,
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Déconnexion'),
+            ),
           ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          actions: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Annuler'),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
               ),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: scheme.error,
-                  foregroundColor: scheme.onError,
-                ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Déconnexion'),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed == true && mounted) {
-      await supabase.auth.signOut();
-    }
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed == true && mounted) {
+    await supabase.auth.signOut();
   }
+}
 
   PreferredSizeWidget _appBar() => AppBar(
         title: const Text('Mes adresses'),
