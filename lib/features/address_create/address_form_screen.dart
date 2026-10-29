@@ -12,6 +12,7 @@ import '../../models/address.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/section.dart';
 import '../../ui/status_chip.dart';
+import '../../widgets/map_type_buttons.dart';
 
 class AddressFormScreen extends StatefulWidget {
   final Address? existingAddress;
@@ -473,6 +474,7 @@ class _PositionPickerMap extends StatefulWidget {
 class _PositionPickerMapState extends State<_PositionPickerMap> {
   final MapController _controller = MapController();
   late LatLng _position = widget.initialPosition;
+  bool _satellite = false;
 
   @override
   void dispose() {
@@ -506,10 +508,20 @@ class _PositionPickerMapState extends State<_PositionPickerMap> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: _satellite
+                      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.carnet_adresses.repere',
                 ),
               ],
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: MapTypeButtons(
+                satellite: _satellite,
+                onChanged: (value) => setState(() => _satellite = value),
+              ),
             ),
             IgnorePointer(
               child: Column(

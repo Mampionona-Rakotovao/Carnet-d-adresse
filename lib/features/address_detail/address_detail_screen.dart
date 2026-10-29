@@ -16,6 +16,7 @@ import 'widgets/share_link_sheet.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
 import '../../ui/status_chip.dart';
+import '../../widgets/map_type_buttons.dart';
 
 class AddressDetailScreen extends StatefulWidget {
   final String addressId;
@@ -31,6 +32,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   List<Landmark> _landmarks = [];
   List<RouteStep> _steps = [];
   bool _isFavorite = false;
+  bool _satellite = false;
   bool _loading = true;
   String? _error;
 
@@ -328,49 +330,63 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
               height: 220,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: LatLng(address.latitude, address.longitude),
-                  initialZoom: 16,
-                ),
+              child: Stack(
                 children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.carnet_adresses.repere',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: LatLng(address.latitude, address.longitude),
-                        width: 44,
-                        height: 44,
-                        child: Icon(
-                          address.gpsType == GpsType.exact
-                              ? Icons.location_on
-                              : Icons.flag,
-                          color: Colors.red,
-                          size: 38,
-                        ),
+                  FlutterMap(
+                    options: MapOptions(
+                      initialCenter: LatLng(address.latitude, address.longitude),
+                      initialZoom: 16,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: _satellite
+                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.carnet_adresses.repere',
                       ),
-                      // Repères qui ont eux-mêmes des coordonnées GPS (optionnel).
-                      ..._landmarks
-                          .where((l) => l.latitude != null && l.longitude != null)
-                          .map(
-                            (l) => Marker(
-                              point: LatLng(l.latitude!, l.longitude!),
-                              width: 36,
-                              height: 36,
-                              child: GestureDetector(
-                                onTap: () => _openLandmarkDetail(l),
-                                child: const Icon(
-                                  Icons.place,
-                                  color: Colors.blue,
-                                  size: 30,
-                                ),
-                              ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: LatLng(address.latitude, address.longitude),
+                            width: 44,
+                            height: 44,
+                            child: Icon(
+                              address.gpsType == GpsType.exact
+                                  ? Icons.location_on
+                                  : Icons.flag,
+                              color: Colors.red,
+                              size: 38,
                             ),
                           ),
+                          // Repères qui ont eux-mêmes des coordonnées GPS (optionnel).
+                          ..._landmarks
+                              .where((l) => l.latitude != null && l.longitude != null)
+                              .map(
+                                (l) => Marker(
+                                  point: LatLng(l.latitude!, l.longitude!),
+                                  width: 36,
+                                  height: 36,
+                                  child: GestureDetector(
+                                    onTap: () => _openLandmarkDetail(l),
+                                    child: const Icon(
+                                      Icons.place,
+                                      color: Colors.blue,
+                                      size: 30,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        ],
+                      ),
                     ],
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: MapTypeButtons(
+                      satellite: _satellite,
+                      onChanged: (value) => setState(() => _satellite = value),
+                    ),
                   ),
                 ],
               ),
