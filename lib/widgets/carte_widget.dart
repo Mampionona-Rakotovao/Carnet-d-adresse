@@ -61,7 +61,7 @@ class _CarteWidgetState extends State<CarteWidget> {
               urlTemplate:
                   'https://api.maptiler.com/maps/$style/{z}/{x}/{y}.$ext?key=$maptilerKey',
               userAgentPackageName: 'com.example.carnet_adresses_repere',
-              maxNativeZoom: 19,
+              maxNativeZoom: 17,
               retinaMode: RetinaMode.isHighDensity(context),
             ),
             MarkerLayer(markers: widget.marqueurs),
