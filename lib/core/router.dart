@@ -43,6 +43,53 @@ bool _isPasswordRecovery = false;
 /// connecté. Il est rouvert automatiquement après la connexion.
 String? _pendingLocation;
 
+/// Route initiale à ouvrir quand l'application est lancée à froid par un
+/// lien partagé. Doit être renseignée avant la création de [router].
+String? _initialLocation;
+
+/// Traduit un lien entrant en route interne, ou null si le lien n'est pas
+/// un lien de partage reconnu.
+///
+/// Formats acceptés :
+/// - https://mampionona-rakotovao.github.io/a/<id>
+/// - carnetadresses://a/<id>
+String? _routeDepuisLien(Uri? uri) {
+  if (uri == null) return null;
+
+  String? token;
+  if (uri.scheme == 'https' &&
+      uri.host == 'mampionona-rakotovao.github.io' &&
+      uri.pathSegments.length >= 2 &&
+      uri.pathSegments.first == 'a') {
+    token = uri.pathSegments[1];
+  } else if (uri.scheme == 'carnetadresses') {
+    if (uri.host == 'a' && uri.pathSegments.isNotEmpty) {
+      token = uri.pathSegments.first;
+    } else if (uri.pathSegments.length >= 2 && uri.pathSegments.first == 'a') {
+      token = uri.pathSegments[1];
+    }
+  }
+
+  if (token == null || token.isEmpty) return null;
+  return '/a/$token';
+}
+
+/// Mémorise le lien partagé d'un lancement à froid. À appeler avant
+/// [runApp] pour que l'application démarre directement sur l'adresse.
+void definirLienInitial(Uri? uri) {
+  final route = _routeDepuisLien(uri);
+  if (route != null) _initialLocation ??= route;
+}
+
+/// Ouvre un lien partagé reçu alors que l'application est déjà lancée.
+/// Retourne true si le lien a été reconnu et traité.
+bool ouvrirLienEntrant(Uri? uri) {
+  final route = _routeDepuisLien(uri);
+  if (route == null) return false;
+  router.go(route);
+  return true;
+}
+
 /// À appeler une fois le mot de passe mis à jour avec succès.
 void clearPasswordRecoveryFlag() => _isPasswordRecovery = false;
 
@@ -65,7 +112,7 @@ final GoRouter router = _buildRouter();
 GoRouter _buildRouter() {
   _listenForPasswordRecovery();
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: _initialLocation ?? '/',
     refreshListenable: GoRouterRefreshStream(supabase.auth.onAuthStateChange),
     redirect: (context, state) {
       final loggedIn = supabase.auth.currentSession != null;

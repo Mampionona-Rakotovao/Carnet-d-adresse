@@ -62,6 +62,15 @@
                     android:host="mampionona-rakotovao.github.io"
                     android:pathPrefix="/a/"/>
             </intent-filter>
+
+            <!-- Lien de secours des pages web (WebView Messenger, etc.) :
+                 carnetadresses://a/<id> -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="carnetadresses" android:host="a"/>
+            </intent-filter>
         </activity>
 
         <!-- Don't delete the meta-data below.

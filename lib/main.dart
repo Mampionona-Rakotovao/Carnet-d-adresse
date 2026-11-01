@@ -48,13 +48,21 @@ Future<void> main() async {
   if (!kIsWeb) {
     final appLinks = AppLinks();
     final initialLink = await appLinks.getInitialLink();
-    if (_isPasswordResetLink(initialLink)) markPasswordRecovery();
+    if (_isPasswordResetLink(initialLink)) {
+      markPasswordRecovery();
+    } else {
+      // Lancement à froid par un lien partagé : le routeur doit démarrer
+      // directement sur /a/<id>.
+      definirLienInitial(initialLink);
+    }
 
     // App déjà lancée : le lien est reçu à chaud.
     appLinks.uriLinkStream.listen((uri) {
       if (_isPasswordResetLink(uri)) {
         markPasswordRecovery();
         router.refresh();
+      } else {
+        ouvrirLienEntrant(uri);
       }
     });
   }
