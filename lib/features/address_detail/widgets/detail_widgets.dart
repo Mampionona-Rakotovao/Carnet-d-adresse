@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../models/landmark.dart';
 import '../../../models/route_step.dart';
 
 /// Intitulé de section : sert à séparer visuellement le bloc « repère » du
@@ -78,6 +79,42 @@ class DetailChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(text, style: Theme.of(context).textTheme.labelMedium),
         ],
+      ),
+    );
+  }
+}
+
+/// Carte compacte d'un repère : photo, nom, description et action facultative.
+/// Utilisée dans le détail d'adresse et dans l'écran de partage.
+class LandmarkCard extends StatelessWidget {
+  final Landmark landmark;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  const LandmarkCard({
+    super.key,
+    required this.landmark,
+    this.onTap,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        onTap: onTap,
+        leading: CircleAvatar(
+          backgroundImage: landmark.photoUrl != null
+              ? NetworkImage(landmark.photoUrl!)
+              : null,
+          child: landmark.photoUrl == null ? const Icon(Icons.place) : null,
+        ),
+        title: Text(landmark.name),
+        subtitle:
+            landmark.description != null ? Text(landmark.description!) : null,
+        trailing: trailing ??
+            (onTap == null ? null : const Icon(Icons.chevron_right)),
       ),
     );
   }
@@ -199,16 +236,16 @@ class StepCard extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-if (step.distance != null)
+                          if (step.distance != null)
                             DetailChip(
                               icon: Icons.straighten,
                               text: '${step.distance!.toStringAsFixed(0)} m',
                             ),
-                        if (step.direction != null)
-                          DetailChip(
-                            icon: Icons.navigation,
-                            text: step.direction!,
-                          ),
+                          if (step.direction != null)
+                            DetailChip(
+                              icon: Icons.navigation,
+                              text: step.direction!,
+                            ),
                         ],
                       ),
                     ],

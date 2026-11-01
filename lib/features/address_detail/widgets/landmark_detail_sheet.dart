@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../models/landmark.dart';
 import '../../../models/route_step.dart';
 import 'detail_widgets.dart';
+import 'trajet_widgets.dart';
 
 /// Préfixe des actions portant sur le repère lui-même.
 const landmarkDetailEdit = 'edit';
@@ -29,9 +31,11 @@ Future<String?> showLandmarkDetailSheet(
   required Landmark landmark,
   required List<RouteStep> steps,
   required bool isOwner,
+  bool afficherTrajet = false,
+  LatLng? destination,
+  String? nom,
 }) {
-  final relatedSteps =
-      steps.where((s) => s.landmarkId == landmark.id).toList();
+  final relatedSteps = steps.where((s) => s.landmarkId == landmark.id).toList();
 
   return showModalBottomSheet<String>(
     context: context,
@@ -46,7 +50,15 @@ Future<String?> showLandmarkDetailSheet(
             )
           : null,
       children: [
-        _LandmarkCard(landmark),
+        LandmarkDetailCard(landmark),
+        if (afficherTrajet && destination != null) ...[
+          const SizedBox(height: 16),
+          TrajetBoutons(
+            destination: destination,
+            nom: nom ?? landmark.name,
+            afficherNaviguer: false,
+          ),
+        ],
         const SizedBox(height: 24),
         SectionLabel(
           icon: Icons.route,
@@ -80,10 +92,10 @@ Future<String?> showLandmarkDetailSheet(
 }
 
 /// Carte du repère : photo, nom, description et informations GPS.
-class _LandmarkCard extends StatelessWidget {
+class LandmarkDetailCard extends StatelessWidget {
   final Landmark landmark;
 
-  const _LandmarkCard(this.landmark);
+  const LandmarkDetailCard(this.landmark, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +135,12 @@ class _LandmarkCard extends StatelessWidget {
                       hasGps ? Icons.my_location : Icons.location_off_outlined,
                   text: hasGps
                       ? '${landmark.latitude!.toStringAsFixed(6)}, '
-                            '${landmark.longitude!.toStringAsFixed(6)}'
+                          '${landmark.longitude!.toStringAsFixed(6)}'
                       : 'Coordonnées non renseignées',
                 ),
                 InfoRow(
                   icon: Icons.low_priority,
-                  text:
-                      'Position ${landmark.positionOrder + 1} dans le trajet',
+                  text: 'Position ${landmark.positionOrder + 1} dans le trajet',
                 ),
               ],
             ),

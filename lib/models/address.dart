@@ -43,7 +43,8 @@ class Address {
 
   factory Address.fromJson(Map<String, dynamic> json) => Address(
         id: json['id'] as String,
-        ownerId: json['owner_id'] as String,
+        // Absent du lien partagé public : le propriétaire n'est pas exposé.
+        ownerId: json['owner_id'] as String? ?? '',
         name: json['name'] as String,
         description: json['description'] as String?,
         locality: json['locality'] as String?,

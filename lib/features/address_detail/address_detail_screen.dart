@@ -1,27 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/favorites.dart';
-import '../../core/navigation_launcher.dart';
-import '../../core/route_service.dart' hide RouteStep;
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
+import 'widgets/detail_widgets.dart';
 import 'widgets/landmark_detail_sheet.dart';
 import 'widgets/landmark_form_sheet.dart';
 import 'widgets/route_step_detail_sheet.dart';
 import 'widgets/route_step_form_sheet.dart';
 import 'widgets/share_link_sheet.dart';
+import 'widgets/trajet_widgets.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
 import '../../ui/status_chip.dart';
-import '../../widgets/carte_widget.dart';
-import '../../widgets/map_type_buttons.dart';
-import '../navigation/navigation_screen.dart';
 
 class AddressDetailScreen extends StatefulWidget {
   final String addressId;
@@ -37,10 +32,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   List<Landmark> _landmarks = [];
   List<RouteStep> _steps = [];
   bool _isFavorite = false;
-  bool _satellite = true;
   bool _loading = true;
-  bool _routeLoading = false;
-  RouteResult? _route;
   String? _error;
 
   /// Seul le propriétaire voit les actions de modification. La RLS protège
@@ -239,98 +231,6 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     }
   }
 
-  /// Récupère la position actuelle après avoir vérifié GPS et permission.
-  Future<LatLng?> _positionActuelle() async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      if (mounted) {
-        AppSnack.warning(
-            context, 'Activez le GPS pour calculer un itinéraire.');
-      }
-      return null;
-    }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      if (mounted) {
-        AppSnack.warning(
-          context,
-          'Autorisez la localisation pour calculer un itinéraire.',
-        );
-      }
-      return null;
-    }
-
-    try {
-      final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
-      return LatLng(p.latitude, p.longitude);
-    } catch (_) {
-      if (mounted) {
-        AppSnack.warning(context, 'Impossible de récupérer votre position.');
-      }
-      return null;
-    }
-  }
-
-  Future<void> _calculerItineraire() async {
-    if (_routeLoading) return;
-    final address = _address!;
-    setState(() => _routeLoading = true);
-    try {
-      final from = await _positionActuelle();
-      if (from == null) return;
-
-      final route = await RouteService.getRoute(
-        from,
-        LatLng(address.latitude, address.longitude),
-      );
-      if (!mounted) return;
-
-      if (route == null) {
-        AppSnack.warning(
-          context,
-          'Aucun itinéraire trouvé. Utilisez le bouton Naviguer.',
-        );
-        return;
-      }
-      setState(() => _route = route);
-    } catch (e) {
-      if (mounted) AppSnack.error(context, e);
-    } finally {
-      if (mounted) setState(() => _routeLoading = false);
-    }
-  }
-
-  void _ouvrirGuidage() {
-    final address = _address!;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NavigationScreen(
-          destination: LatLng(address.latitude, address.longitude),
-          nom: address.name,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _naviguerExterne() async {
-    final address = _address!;
-    final ok = await ouvrirNavigation(
-      LatLng(address.latitude, address.longitude),
-    );
-    if (!ok && mounted) {
-      AppSnack.warning(context, "Impossible d'ouvrir Google Maps.");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -433,113 +333,15 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           Text(
               '${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
           const SizedBox(height: AppSpacing.sm),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              height: 220,
-              child: Stack(
-                children: [
-                  CarteWidget(
-                    centre: LatLng(address.latitude, address.longitude),
-                    zoom: 16,
-                    satellite: _satellite,
-                    onSatelliteChanged: (value) =>
-                        setState(() => _satellite = value),
-                    afficherBoutonBascule: false,
-                    polylines: _route == null
-                        ? const []
-                        : [
-                            Polyline(
-                              points: _route!.points,
-                              strokeWidth: 6,
-                              color: Colors.blue,
-                            ),
-                          ],
-                    marqueurs: [
-                      Marker(
-                        point: LatLng(address.latitude, address.longitude),
-                        width: 44,
-                        height: 44,
-                        child: Icon(
-                          address.gpsType == GpsType.exact
-                              ? Icons.location_on
-                              : Icons.flag,
-                          color: Colors.red,
-                          size: 38,
-                        ),
-                      ),
-                      // Repères qui ont eux-mêmes des coordonnées GPS (optionnel).
-                      ..._landmarks
-                          .where(
-                              (l) => l.latitude != null && l.longitude != null)
-                          .map(
-                            (l) => Marker(
-                              point: LatLng(l.latitude!, l.longitude!),
-                              width: 36,
-                              height: 36,
-                              child: GestureDetector(
-                                onTap: () => _openLandmarkDetail(l),
-                                child: const Icon(
-                                  Icons.place,
-                                  color: Colors.blue,
-                                  size: 30,
-                                ),
-                              ),
-                            ),
-                          ),
-                    ],
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: MapTypeButtons(
-                      satellite: _satellite,
-                      onChanged: (value) => setState(() => _satellite = value),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          TrajetSection(
+            destination: LatLng(address.latitude, address.longitude),
+            nom: address.name,
+            landmarks: _landmarks,
+            markerIcon: address.gpsType == GpsType.exact
+                ? Icons.location_on
+                : Icons.flag,
+            onLandmarkTap: _openLandmarkDetail,
           ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            children: [
-              FilledButton.tonalIcon(
-                onPressed: _routeLoading ? null : _calculerItineraire,
-                icon: _routeLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.alt_route),
-                label: const Text('Itinéraire'),
-              ),
-              FilledButton.icon(
-                onPressed: _ouvrirGuidage,
-                icon: const Icon(Icons.navigation),
-                label: const Text('Guidage'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _naviguerExterne,
-                icon: const Icon(Icons.map_outlined),
-                label: const Text('Naviguer'),
-              ),
-            ],
-          ),
-          if (_route != null)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xs),
-              child: Text(
-                '${_route!.distanceText} • ${_route!.durationText}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
           const SizedBox(height: AppSpacing.lg),
           const Divider(),
 
@@ -567,36 +369,30 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                   style: TextStyle(color: Colors.grey)),
             )
           else
-            ..._landmarks.map((l) => Card(
-                  child: ListTile(
-                    onTap: () => _openLandmarkDetail(l),
-                    leading: CircleAvatar(
-                      backgroundImage:
-                          l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
-                      child:
-                          l.photoUrl == null ? const Icon(Icons.place) : null,
-                    ),
-                    title: Text(l.name),
-                    subtitle:
-                        l.description != null ? Text(l.description!) : null,
-                    trailing: isOwner
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () => _editLandmark(l),
-                              ),
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.delete_outline, size: 20),
-                                onPressed: () => _deleteLandmark(l),
-                              ),
-                            ],
-                          )
-                        : const Icon(Icons.chevron_right),
-                  ),
-                )),
+            ..._landmarks.map(
+              (l) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: LandmarkCard(
+                  landmark: l,
+                  onTap: () => _openLandmarkDetail(l),
+                  trailing: isOwner
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () => _editLandmark(l),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, size: 20),
+                              onPressed: () => _deleteLandmark(l),
+                            ),
+                          ],
+                        )
+                      : null,
+                ),
+              ),
+            ),
 
           const SizedBox(height: AppSpacing.md),
           const Divider(),

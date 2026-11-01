@@ -39,10 +39,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
 /// le passage par /reset-password avant toute autre navigation.
 bool _isPasswordRecovery = false;
 
-/// Lien partagé (/a/<token>) reçu alors que l'utilisateur n'était pas
-/// connecté. Il est rouvert automatiquement après la connexion.
-String? _pendingLocation;
-
 /// Route initiale à ouvrir quand l'application est lancée à froid par un
 /// lien partagé. Doit être renseignée avant la création de [router].
 String? _initialLocation;
@@ -120,6 +116,8 @@ GoRouter _buildRouter() {
       final onResetPage = state.matchedLocation == '/reset-password';
       final onResetCodePage = state.matchedLocation == '/reset-code';
       final onConfirmPage = state.matchedLocation == '/confirm-email';
+      // Un lien partagé doit s'ouvrir même sans compte : le jeton suffit.
+      final onSharedLink = state.matchedLocation.startsWith('/a/');
 
       // Une fois le mot de passe en cours de réinitialisation (code validé ou
       // lien ouvert), on force l'écran de saisie du nouveau mot de passe.
@@ -127,18 +125,16 @@ GoRouter _buildRouter() {
         return onResetPage ? null : '/reset-password';
       }
 
-      if (!loggedIn && !onLoginPage && !onConfirmPage && !onResetCodePage) {
-        // On retient le lien partagé pour le rouvrir après la connexion.
-        if (state.matchedLocation.startsWith('/a/')) {
-          _pendingLocation = state.uri.path;
-        }
+      if (!loggedIn &&
+          !onLoginPage &&
+          !onConfirmPage &&
+          !onResetCodePage &&
+          !onSharedLink) {
         return '/login';
       }
 
       if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
-        final pending = _pendingLocation;
-        _pendingLocation = null;
-        return pending ?? '/';
+        return '/';
       }
       return null;
     },
