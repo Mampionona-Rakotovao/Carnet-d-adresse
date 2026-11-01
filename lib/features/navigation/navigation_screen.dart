@@ -93,14 +93,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
     });
   }
 
-  void _reessayer() {
-    setState(() {
-      _erreur = null;
-      _loading = true;
-    });
-    _demarrer();
-  }
-
   Future<bool> _calculer() async {
     final route = await RouteService.getRoute(_pos!, widget.destination);
     if (route == null || route.steps.isEmpty) return false;
@@ -183,16 +175,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(_erreur!, textAlign: TextAlign.center),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () => ouvrirNavigation(widget.destination),
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('Naviguer'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _reessayer,
-                  child: const Text('Réessayer'),
+                  icon: const Icon(Icons.map),
+                  label: const Text('Ouvrir dans Google Maps'),
                 ),
               ],
             ),
