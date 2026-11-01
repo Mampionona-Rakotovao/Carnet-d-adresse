@@ -8,6 +8,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
+import '../../widgets/carte_widget.dart';
 
 /// Écran ouvert par un lien partagé :
 /// https://mampionona-rakotovao.github.io/a/<token>
@@ -163,31 +164,21 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
         borderRadius: BorderRadius.circular(8),
         child: SizedBox(
           height: 220,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: LatLng(address.latitude, address.longitude),
-              initialZoom: 16,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.carnet_adresses.repere',
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: LatLng(address.latitude, address.longitude),
-                    width: 40,
-                    height: 40,
-                    child: Icon(
-                      address.gpsType == GpsType.exact
-                          ? Icons.location_on
-                          : Icons.flag,
-                      color: Colors.red,
-                      size: 34,
-                    ),
-                  ),
-                ],
+          child: CarteWidget(
+            centre: LatLng(address.latitude, address.longitude),
+            zoom: 16,
+            marqueurs: [
+              Marker(
+                point: LatLng(address.latitude, address.longitude),
+                width: 40,
+                height: 40,
+                child: Icon(
+                  address.gpsType == GpsType.exact
+                      ? Icons.location_on
+                      : Icons.flag,
+                  color: Colors.red,
+                  size: 34,
+                ),
               ),
             ],
           ),

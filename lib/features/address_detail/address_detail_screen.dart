@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/favorites.dart';
+import '../../core/navigation_launcher.dart';
+import '../../core/route_service.dart' hide RouteStep;
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
@@ -16,7 +19,9 @@ import 'widgets/share_link_sheet.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
 import '../../ui/status_chip.dart';
+import '../../widgets/carte_widget.dart';
 import '../../widgets/map_type_buttons.dart';
+import '../navigation/navigation_screen.dart';
 
 class AddressDetailScreen extends StatefulWidget {
   final String addressId;
@@ -32,8 +37,10 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   List<Landmark> _landmarks = [];
   List<RouteStep> _steps = [];
   bool _isFavorite = false;
-  bool _satellite = false;
+  bool _satellite = true;
   bool _loading = true;
+  bool _routeLoading = false;
+  RouteResult? _route;
   String? _error;
 
   /// Seul le propriétaire voit les actions de modification. La RLS protège
@@ -76,7 +83,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
 
       setState(() {
         _address = Address.fromJson(addressRow);
-        _landmarks = (landmarkRows as List).map((r) => Landmark.fromJson(r)).toList();
+        _landmarks =
+            (landmarkRows as List).map((r) => Landmark.fromJson(r)).toList();
         _steps = (stepRows as List).map((r) => RouteStep.fromJson(r)).toList();
         _isFavorite = favorite;
       });
@@ -139,7 +147,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   }
 
   Future<void> _deleteLandmark(Landmark l) async {
-    if (!await _confirm('Supprimer ce repère ?', '"${l.name}" sera supprimé.')) return;
+    if (!await _confirm('Supprimer ce repère ?', '"${l.name}" sera supprimé.'))
+      return;
     await supabase.from('landmarks').delete().eq('id', l.id!);
     _loadAll();
   }
@@ -156,7 +165,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   }
 
   Future<void> _deleteStep(RouteStep s) async {
-    if (!await _confirm('Supprimer cette étape ?', 'L\'étape sera supprimée.')) return;
+    if (!await _confirm('Supprimer cette étape ?', 'L\'étape sera supprimée.'))
+      return;
     await supabase.from('route_steps').delete().eq('id', s.id!);
     _loadAll();
   }
@@ -229,6 +239,98 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     }
   }
 
+  /// Récupère la position actuelle après avoir vérifié GPS et permission.
+  Future<LatLng?> _positionActuelle() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) {
+        AppSnack.warning(
+            context, 'Activez le GPS pour calculer un itinéraire.');
+      }
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        AppSnack.warning(
+          context,
+          'Autorisez la localisation pour calculer un itinéraire.',
+        );
+      }
+      return null;
+    }
+
+    try {
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      return LatLng(p.latitude, p.longitude);
+    } catch (_) {
+      if (mounted) {
+        AppSnack.warning(context, 'Impossible de récupérer votre position.');
+      }
+      return null;
+    }
+  }
+
+  Future<void> _calculerItineraire() async {
+    if (_routeLoading) return;
+    final address = _address!;
+    setState(() => _routeLoading = true);
+    try {
+      final from = await _positionActuelle();
+      if (from == null) return;
+
+      final route = await RouteService.getRoute(
+        from,
+        LatLng(address.latitude, address.longitude),
+      );
+      if (!mounted) return;
+
+      if (route == null) {
+        AppSnack.warning(
+          context,
+          'Aucun itinéraire trouvé. Utilisez le bouton Naviguer.',
+        );
+        return;
+      }
+      setState(() => _route = route);
+    } catch (e) {
+      if (mounted) AppSnack.error(context, e);
+    } finally {
+      if (mounted) setState(() => _routeLoading = false);
+    }
+  }
+
+  void _ouvrirGuidage() {
+    final address = _address!;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NavigationScreen(
+          destination: LatLng(address.latitude, address.longitude),
+          nom: address.name,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _naviguerExterne() async {
+    final address = _address!;
+    final ok = await ouvrirNavigation(
+      LatLng(address.latitude, address.longitude),
+    );
+    if (!ok && mounted) {
+      AppSnack.warning(context, "Impossible d'ouvrir Google Maps.");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -253,7 +355,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         actions: [
           IconButton(
             icon: Icon(_isFavorite ? Icons.star : Icons.star_outline),
-            tooltip: _isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+            tooltip:
+                _isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
             color: _isFavorite ? Colors.amber : null,
             onPressed: _toggleFavorite,
           ),
@@ -261,13 +364,15 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
             IconButton(
               icon: const Icon(Icons.share_outlined),
               tooltip: 'Partager',
-              onPressed: () => showShareLinkSheet(context, addressId: address.id!),
+              onPressed: () =>
+                  showShareLinkSheet(context, addressId: address.id!),
             ),
             IconButton(
               icon: const Icon(Icons.edit),
               tooltip: 'Modifier',
               onPressed: () async {
-                await context.push<bool>('/address/${address.id}/edit', extra: address);
+                await context.push<bool>('/address/${address.id}/edit',
+                    extra: address);
                 _loadAll();
               },
             ),
@@ -323,8 +428,10 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
             Text(address.description!),
             const SizedBox(height: AppSpacing.md),
           ],
-          Text('Coordonnées GPS', style: Theme.of(context).textTheme.titleSmall),
-          Text('${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
+          Text('Coordonnées GPS',
+              style: Theme.of(context).textTheme.titleSmall),
+          Text(
+              '${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
           const SizedBox(height: AppSpacing.sm),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -332,52 +439,54 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               height: 220,
               child: Stack(
                 children: [
-                  FlutterMap(
-                    options: MapOptions(
-                      initialCenter: LatLng(address.latitude, address.longitude),
-                      initialZoom: 16,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: _satellite
-                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.carnet_adresses.repere',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: LatLng(address.latitude, address.longitude),
-                            width: 44,
-                            height: 44,
-                            child: Icon(
-                              address.gpsType == GpsType.exact
-                                  ? Icons.location_on
-                                  : Icons.flag,
-                              color: Colors.red,
-                              size: 38,
+                  CarteWidget(
+                    centre: LatLng(address.latitude, address.longitude),
+                    zoom: 16,
+                    satellite: _satellite,
+                    onSatelliteChanged: (value) =>
+                        setState(() => _satellite = value),
+                    afficherBoutonBascule: false,
+                    polylines: _route == null
+                        ? const []
+                        : [
+                            Polyline(
+                              points: _route!.points,
+                              strokeWidth: 6,
+                              color: Colors.blue,
                             ),
-                          ),
-                          // Repères qui ont eux-mêmes des coordonnées GPS (optionnel).
-                          ..._landmarks
-                              .where((l) => l.latitude != null && l.longitude != null)
-                              .map(
-                                (l) => Marker(
-                                  point: LatLng(l.latitude!, l.longitude!),
-                                  width: 36,
-                                  height: 36,
-                                  child: GestureDetector(
-                                    onTap: () => _openLandmarkDetail(l),
-                                    child: const Icon(
-                                      Icons.place,
-                                      color: Colors.blue,
-                                      size: 30,
-                                    ),
-                                  ),
+                          ],
+                    marqueurs: [
+                      Marker(
+                        point: LatLng(address.latitude, address.longitude),
+                        width: 44,
+                        height: 44,
+                        child: Icon(
+                          address.gpsType == GpsType.exact
+                              ? Icons.location_on
+                              : Icons.flag,
+                          color: Colors.red,
+                          size: 38,
+                        ),
+                      ),
+                      // Repères qui ont eux-mêmes des coordonnées GPS (optionnel).
+                      ..._landmarks
+                          .where(
+                              (l) => l.latitude != null && l.longitude != null)
+                          .map(
+                            (l) => Marker(
+                              point: LatLng(l.latitude!, l.longitude!),
+                              width: 36,
+                              height: 36,
+                              child: GestureDetector(
+                                onTap: () => _openLandmarkDetail(l),
+                                child: const Icon(
+                                  Icons.place,
+                                  color: Colors.blue,
+                                  size: 30,
                                 ),
                               ),
-                        ],
-                      ),
+                            ),
+                          ),
                     ],
                   ),
                   Positioned(
@@ -392,6 +501,45 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               ),
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _routeLoading ? null : _calculerItineraire,
+                icon: _routeLoading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.alt_route),
+                label: const Text('Itinéraire'),
+              ),
+              FilledButton.icon(
+                onPressed: _ouvrirGuidage,
+                icon: const Icon(Icons.navigation),
+                label: const Text('Guidage'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _naviguerExterne,
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Naviguer'),
+              ),
+            ],
+          ),
+          if (_route != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(
+                '${_route!.distanceText} • ${_route!.durationText}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
           const SizedBox(height: AppSpacing.lg),
           const Divider(),
 
@@ -405,7 +553,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                   icon: const Icon(Icons.add_circle_outline),
                   tooltip: 'Ajouter un repère',
                   onPressed: () async {
-                    final ok = await showLandmarkFormSheet(context, addressId: address.id!);
+                    final ok = await showLandmarkFormSheet(context,
+                        addressId: address.id!);
                     if (ok == true) _loadAll();
                   },
                 ),
@@ -414,18 +563,22 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           if (_landmarks.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Aucun repère pour le moment.', style: TextStyle(color: Colors.grey)),
+              child: Text('Aucun repère pour le moment.',
+                  style: TextStyle(color: Colors.grey)),
             )
           else
             ..._landmarks.map((l) => Card(
                   child: ListTile(
                     onTap: () => _openLandmarkDetail(l),
                     leading: CircleAvatar(
-                      backgroundImage: l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
-                      child: l.photoUrl == null ? const Icon(Icons.place) : null,
+                      backgroundImage:
+                          l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
+                      child:
+                          l.photoUrl == null ? const Icon(Icons.place) : null,
                     ),
                     title: Text(l.name),
-                    subtitle: l.description != null ? Text(l.description!) : null,
+                    subtitle:
+                        l.description != null ? Text(l.description!) : null,
                     trailing: isOwner
                         ? Row(
                             mainAxisSize: MainAxisSize.min,
@@ -435,7 +588,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                                 onPressed: () => _editLandmark(l),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 20),
+                                icon:
+                                    const Icon(Icons.delete_outline, size: 20),
                                 onPressed: () => _deleteLandmark(l),
                               ),
                             ],
@@ -451,7 +605,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Étapes du trajet', style: Theme.of(context).textTheme.titleMedium),
+              Text('Étapes du trajet',
+                  style: Theme.of(context).textTheme.titleMedium),
               if (isOwner)
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
@@ -471,7 +626,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           if (_steps.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Aucune étape pour le moment.', style: TextStyle(color: Colors.grey)),
+              child: Text('Aucune étape pour le moment.',
+                  style: TextStyle(color: Colors.grey)),
             )
           else
             ..._steps.map((s) {
@@ -483,7 +639,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                   leading: CircleAvatar(child: Text('${s.stepOrder}')),
                   title: Text(s.instruction),
                   subtitle: Text([
-                    if (s.distance != null) '${s.distance!.toStringAsFixed(0)} m',
+                    if (s.distance != null)
+                      '${s.distance!.toStringAsFixed(0)} m',
                     if (s.direction != null) s.direction!,
                     if (landmark != null) 'Repère : ${landmark.name}',
                   ].join(' · ')),

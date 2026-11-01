@@ -12,6 +12,7 @@ import '../../models/address.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/section.dart';
 import '../../ui/status_chip.dart';
+import '../../widgets/carte_widget.dart';
 import '../../widgets/map_type_buttons.dart';
 
 class AddressFormScreen extends StatefulWidget {
@@ -68,14 +69,17 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   }
 
   Future<void> _pickPhoto() async {
-    final picked =
-        await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600);
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, maxWidth: 1600);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
-    final rawExt = picked.name.contains('.') ? picked.name.split('.').last.toLowerCase() : 'jpg';
+    final rawExt = picked.name.contains('.')
+        ? picked.name.split('.').last.toLowerCase()
+        : 'jpg';
     setState(() {
       _pickedPhotoBytes = bytes;
-      _pickedPhotoExt = RegExp(r'^[a-z0-9]{1,5}$').hasMatch(rawExt) ? rawExt : 'jpg';
+      _pickedPhotoExt =
+          RegExp(r'^[a-z0-9]{1,5}$').hasMatch(rawExt) ? rawExt : 'jpg';
     });
   }
 
@@ -94,7 +98,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     });
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        AppSnack.warning(context, 'Le GPS est désactivé sur cet appareil. Activez-le et réessayez.');
+        AppSnack.warning(context,
+            'Le GPS est désactivé sur cet appareil. Activez-le et réessayez.');
         setState(() => _locatingGps = false);
         return;
       }
@@ -137,18 +142,23 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   Future<void> _openSettingsAndRetry() async {
     await openAppSettings();
   }
+
   Future<String?> _uploadPhotoIfNeeded(String addressId) async {
     if (_pickedPhotoBytes == null) return _existingPhotoUrl;
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}.${_pickedPhotoExt ?? 'jpg'}';
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}.${_pickedPhotoExt ?? 'jpg'}';
     final path = '$addressId/cover_$fileName';
-    await supabase.storage.from('photos').uploadBinary(path, _pickedPhotoBytes!);
+    await supabase.storage
+        .from('photos')
+        .uploadBinary(path, _pickedPhotoBytes!);
     return supabase.storage.from('photos').getPublicUrl(path);
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_latitude == null || _longitude == null) {
-      AppSnack.warning(context, 'Veuillez capturer la position GPS avant d\'enregistrer.');
+      AppSnack.warning(
+          context, 'Veuillez capturer la position GPS avant d\'enregistrer.');
       return;
     }
     setState(() => _saving = true);
@@ -156,7 +166,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
       final userId = supabase.auth.currentUser!.id;
 
       if (widget.isEditMode) {
-        final photoUrl = await _uploadPhotoIfNeeded(widget.existingAddress!.id!);
+        final photoUrl =
+            await _uploadPhotoIfNeeded(widget.existingAddress!.id!);
         final address = Address(
           ownerId: userId,
           name: _nameController.text.trim(),
@@ -200,7 +211,9 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
         final newId = inserted['id'] as String;
         if (_pickedPhotoBytes != null) {
           final photoUrl = await _uploadPhotoIfNeeded(newId);
-          await supabase.from('addresses').update({'photo_url': photoUrl}).eq('id', newId);
+          await supabase
+              .from('addresses')
+              .update({'photo_url': photoUrl}).eq('id', newId);
         }
         if (mounted) {
           context.pushReplacement(
@@ -223,7 +236,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isEditMode ? "Modifier l'adresse" : 'Nouvelle adresse'),
+        title:
+            Text(widget.isEditMode ? "Modifier l'adresse" : 'Nouvelle adresse'),
       ),
       body: Form(
         key: _formKey,
@@ -233,7 +247,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             FormSection(
               title: 'Photo du point de repère',
               icon: Icons.photo_camera_outlined,
-              description: 'Ajoutez une photo pour faciliter la reconnaissance du lieu.',
+              description:
+                  'Ajoutez une photo pour faciliter la reconnaissance du lieu.',
               children: [
                 GestureDetector(
                   onTap: _pickPhoto,
@@ -242,7 +257,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                     decoration: BoxDecoration(
                       border: Border.all(color: scheme.outlineVariant),
                       borderRadius: AppRadius.cardRadius,
-                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                      color: scheme.surfaceContainerHighest
+                          .withValues(alpha: 0.25),
                     ),
                     child: ClipRRect(
                       borderRadius: AppRadius.cardRadius,
@@ -270,7 +286,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                                     const SizedBox(height: AppSpacing.xs),
                                     Text(
                                       'Appuyer pour ajouter une photo',
-                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         color: scheme.onSurfaceVariant,
                                       ),
                                     ),
@@ -423,7 +440,8 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                     ),
                   ],
                   selected: {_visibility},
-                  onSelectionChanged: (s) => setState(() => _visibility = s.first),
+                  onSelectionChanged: (s) =>
+                      setState(() => _visibility = s.first),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.xxs),
@@ -445,7 +463,9 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(widget.isEditMode ? 'Enregistrer les modifications' : 'Enregistrer'),
+                  : Text(widget.isEditMode
+                      ? 'Enregistrer les modifications'
+                      : 'Enregistrer'),
             ),
           ],
         ),
@@ -474,7 +494,7 @@ class _PositionPickerMap extends StatefulWidget {
 class _PositionPickerMapState extends State<_PositionPickerMap> {
   final MapController _controller = MapController();
   late LatLng _position = widget.initialPosition;
-  bool _satellite = false;
+  bool _satellite = true;
 
   @override
   void dispose() {
@@ -500,20 +520,14 @@ class _PositionPickerMapState extends State<_PositionPickerMap> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            FlutterMap(
-              options: MapOptions(
-                initialCenter: widget.initialPosition,
-                initialZoom: 16,
-                onMapEvent: _onMapEvent,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: _satellite
-                      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.carnet_adresses.repere',
-                ),
-              ],
+            CarteWidget(
+              centre: widget.initialPosition,
+              zoom: 16,
+              controller: _controller,
+              onMapEvent: _onMapEvent,
+              satellite: _satellite,
+              onSatelliteChanged: (value) => setState(() => _satellite = value),
+              afficherBoutonBascule: false,
             ),
             Positioned(
               top: 8,
@@ -530,7 +544,8 @@ class _PositionPickerMapState extends State<_PositionPickerMap> {
                   const Icon(Icons.location_on, size: 42, color: Colors.red),
                   const SizedBox(height: 2),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: scheme.inverseSurface.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(20),
@@ -538,7 +553,8 @@ class _PositionPickerMapState extends State<_PositionPickerMap> {
                     child: Text(
                       '${_position.latitude.toStringAsFixed(5)}, '
                       '${_position.longitude.toStringAsFixed(5)}',
-                      style: TextStyle(color: scheme.onInverseSurface, fontSize: 11),
+                      style: TextStyle(
+                          color: scheme.onInverseSurface, fontSize: 11),
                     ),
                   ),
                 ],
@@ -551,9 +567,11 @@ class _PositionPickerMapState extends State<_PositionPickerMap> {
               child: IgnorePointer(
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.9),
+                      color:
+                          scheme.surfaceContainerHighest.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
