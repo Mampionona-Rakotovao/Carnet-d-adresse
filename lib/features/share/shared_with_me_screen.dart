@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/shared_with_me.dart';
-import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
@@ -73,24 +72,16 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
 
     setState(() => _loadingDetails[token] = true);
     try {
-      final result = await supabase.rpc(
-        'get_shared_address_full',
-        params: {'p_token': token},
-      );
-      if (result == null) {
+      // Le compte a déjà consommé sa place : cet appel est idempotent côté
+      // serveur et ne retire pas de place supplémentaire.
+      final result = await redeemShareLink(token);
+      if (!result.ok) {
         return;
       }
-      final data = result as Map<String, dynamic>;
-      final landmarks = ((data['landmarks'] as List?) ?? [])
-          .map((r) => Landmark.fromJson(r as Map<String, dynamic>))
-          .toList();
-      final steps = ((data['steps'] as List?) ?? [])
-          .map((r) => RouteStep.fromJson(r as Map<String, dynamic>))
-          .toList();
       if (mounted) {
         setState(() {
-          _landmarks[token] = landmarks;
-          _steps[token] = steps;
+          _landmarks[token] = result.landmarks;
+          _steps[token] = result.steps;
         });
       }
     } catch (e) {
@@ -110,8 +101,7 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
         title: const Text('Partagées avec moi'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/'),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
         ),
         actions: [
           IconButton(
@@ -176,7 +166,8 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                             final loading = _loadingDetails[token] == true;
 
                             return Card(
-                              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                              margin:
+                                  const EdgeInsets.only(bottom: AppSpacing.sm),
                               child: Column(
                                 children: [
                                   ListTile(
@@ -238,7 +229,8 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                                             children: [
                                               TextButton.icon(
                                                 onPressed: () async {
-                                                  await context.push('/a/$token');
+                                                  await context
+                                                      .push('/a/$token');
                                                   if (mounted) _load();
                                                 },
                                                 icon: const Icon(
@@ -255,7 +247,9 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                                                     CircularProgressIndicator(
                                                         strokeWidth: 2)),
                                           ],
-                                          if (!loading && landmarks.isEmpty && steps.isEmpty) ...[
+                                          if (!loading &&
+                                              landmarks.isEmpty &&
+                                              steps.isEmpty) ...[
                                             const SizedBox(height: 8),
                                             Text(
                                               'Aucun repère ni étape pour cette adresse.',
@@ -268,8 +262,8 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                                           if (landmarks.isNotEmpty) ...[
                                             const SizedBox(height: 12),
                                             Text('Repères',
-                                                style: theme
-                                                    .textTheme.titleSmall),
+                                                style:
+                                                    theme.textTheme.titleSmall),
                                             const SizedBox(height: 8),
                                             ...landmarks.map((l) => Card(
                                                   margin: const EdgeInsets.only(
@@ -277,11 +271,11 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                                                   child: ListTile(
                                                     dense: true,
                                                     leading: CircleAvatar(
-                                                      backgroundImage: l.photoUrl !=
-                                                              null
-                                                          ? NetworkImage(
-                                                              l.photoUrl!)
-                                                          : null,
+                                                      backgroundImage:
+                                                          l.photoUrl != null
+                                                              ? NetworkImage(
+                                                                  l.photoUrl!)
+                                                              : null,
                                                       child: l.photoUrl == null
                                                           ? const Icon(
                                                               Icons.place,
@@ -299,8 +293,8 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                                           if (steps.isNotEmpty) ...[
                                             const SizedBox(height: 12),
                                             Text('Étapes du trajet',
-                                                style: theme
-                                                    .textTheme.titleSmall),
+                                                style:
+                                                    theme.textTheme.titleSmall),
                                             const SizedBox(height: 8),
                                             ...steps.map((s) => Card(
                                                   margin: const EdgeInsets.only(

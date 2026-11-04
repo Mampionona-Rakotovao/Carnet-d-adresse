@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/supabase_client.dart';
@@ -24,29 +26,38 @@ class _ShareLinkSheet extends StatefulWidget {
 }
 
 class _ShareLinkSheetState extends State<_ShareLinkSheet> {
-  // Durées proposées, en minutes.
-  static const Map<String, int> _durations = {
-    '30 minutes': 30,
-    '1 heure': 60,
-    '2 heures': 120,
-    '6 heures': 360,
-    '24 heures': 1440,
+  static const Map<String, int?> _maxUsesOptions = {
+    '1 personne': 1,
+    '3 personnes': 3,
+    '5 personnes': 5,
+    'Illimité': null,
   };
 
   /// Domaine des App Links (voir AndroidManifest.xml et assetlinks.json).
   static const _shareBaseUrl = 'https://mampionona-rakotovao.github.io/a/';
 
-  String _selectedLabel = '1 heure';
+  ExpirationLien _selectedExpiration = ExpirationLien.j7;
+  String _selectedMaxUsesLabel = '1 personne';
   bool _creating = false;
   String? _error;
   List<ShareLink> _links = [];
   bool _loadingLinks = true;
   final Set<String> _revoking = {};
+  Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
     _loadLinks();
+    _countdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadLinks() async {
@@ -57,9 +68,28 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
           .select()
           .eq('address_id', widget.addressId)
           .order('created_at', ascending: false);
+
+      final links = (rows as List).map((r) => ShareLink.fromJson(r)).toList();
+
+      final counts = <String, int>{};
+      if (links.isNotEmpty) {
+        final ids = links.map((l) => l.id).toList();
+        final redemptions = await supabase
+            .from('share_link_redemptions')
+            .select('share_link_id')
+            .inFilter('share_link_id', ids);
+        for (final raw in redemptions as List) {
+          final row = raw as Map<String, dynamic>;
+          final linkId = row['share_link_id'] as String?;
+          if (linkId != null) counts[linkId] = (counts[linkId] ?? 0) + 1;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
-        _links = (rows as List).map((r) => ShareLink.fromJson(r)).toList();
+        _links = links
+            .map((link) => link.copyWith(usedCount: counts[link.id] ?? 0))
+            .toList();
       });
     } catch (e) {
       if (!mounted) return;
@@ -75,28 +105,52 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
       _error = null;
     });
     try {
-      final minutes = _durations[_selectedLabel]!;
-      final expiresAt = DateTime.now().toUtc().add(Duration(minutes: minutes));
-      final inserted = await supabase
-          .from('share_links')
-          .insert({
-            'address_id': widget.addressId,
-            'created_by': supabase.auth.currentUser!.id,
-            'expires_at': expiresAt.toIso8601String(),
-          })
-          .select()
-          .single();
+      final result = await supabase.rpc(
+        'create_share_link',
+        params: {
+          'p_address_id': widget.addressId,
+          'p_max_uses': _maxUsesOptions[_selectedMaxUsesLabel],
+          'p_duration_minutes': _selectedExpiration.minutes,
+        },
+      );
+      final data = result is Map
+          ? result.cast<String, dynamic>()
+          : const <String, dynamic>{};
 
-      final link = ShareLink.fromJson(inserted);
+      if (data['ok'] != true || data['link'] is! Map) {
+        if (!mounted) return;
+        setState(
+            () => _error = _creationErrorMessage(data['error'] as String?));
+        return;
+      }
+
+      final link = ShareLink.fromJson(
+        (data['link'] as Map).cast<String, dynamic>(),
+      );
       await _loadLinks();
 
       if (mounted) {
         await _shareToken(link.token);
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _creating = false);
+    }
+  }
+
+  String _creationErrorMessage(String? code) {
+    switch (code) {
+      case 'invalid_duration':
+        return 'Durée de validité invalide.';
+      case 'invalid_max_uses':
+        return 'Nombre de personnes invalide.';
+      case 'auth_required':
+        return 'Connecte-toi pour créer un lien.';
+      case 'not_found':
+        return "Impossible de partager cette adresse : elle n'existe plus.";
+      default:
+        return 'Création du lien impossible. Réessayez.';
     }
   }
 
@@ -138,22 +192,20 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
 
     setState(() => _revoking.add(link.id));
     try {
-      final updated = await supabase
-          .from('share_links')
-          .update({
-            'status': 'REVOKED',
-            'revoked_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', link.id)
-          .select();
+      final result = await supabase.rpc(
+        'revoke_share_link',
+        params: {'p_link_id': link.id},
+      );
+      final data = result is Map
+          ? result.cast<String, dynamic>()
+          : const <String, dynamic>{};
 
-      if ((updated as List).isEmpty) {
+      if (data['ok'] != true) {
         if (!mounted) return;
         AppSnack.error(
           context,
-          Exception('revoke share link returned no row'),
-          fallback:
-              'Révocation impossible : vous n\'avez pas les droits nécessaires.',
+          Exception(data['error'] ?? 'not_found'),
+          fallback: 'Révocation impossible. Réessayez.',
         );
         return;
       }
@@ -245,21 +297,32 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
 
   String _statusLabel(ShareLink l) {
     if (l.status == ShareLinkStatus.revoked) return 'Révoqué';
-    if (!l.isEffectivelyActive) return 'Expiré';
+    if (l.isExpired) return 'Expiré';
+    if (l.isFull) return 'Complet';
     return 'Actif';
   }
 
-  Color _statusColor(ShareLink l) {
+  Color _statusColor(BuildContext context, ShareLink l) {
     if (l.status == ShareLinkStatus.revoked) return Colors.grey;
-    if (!l.isEffectivelyActive) return Colors.orange;
+    if (l.isExpired) return Theme.of(context).colorScheme.error;
+    if (l.isFull) return Colors.orange;
     return Colors.green;
+  }
+
+  String _expiryLabel(ShareLink l) => expirationLabel(l.expiresAt);
+
+  String _usesLabel(ShareLink l) {
+    if (l.maxUses == null) {
+      return '${l.usedCount} utilisation(s) · Illimité';
+    }
+    return '${l.usedCount} sur ${l.maxUses} personnes';
   }
 
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.4,
+      initialChildSize: 0.8,
+      minChildSize: 0.45,
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
@@ -270,36 +333,49 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
             children: [
               Text('Partager cette adresse',
                   style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedLabel,
-                      decoration: const InputDecoration(
-                        labelText: 'Durée de validité',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _durations.keys
-                          .map((label) => DropdownMenuItem(
-                              value: label, child: Text(label)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _selectedLabel = v!),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: _creating ? null : _createLink,
-                    icon: _creating
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.link),
-                    label: const Text('Créer'),
-                  ),
-                ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedMaxUsesLabel,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre de personnes',
+                  border: OutlineInputBorder(),
+                ),
+                items: _maxUsesOptions.keys
+                    .map((label) =>
+                        DropdownMenuItem(value: label, child: Text(label)))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedMaxUsesLabel = v!),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Durée de validité',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: ExpirationLien.values.map((expiration) {
+                  return ChoiceChip(
+                    label: Text(expiration.libelle),
+                    selected: _selectedExpiration == expiration,
+                    onSelected: (_) {
+                      setState(() => _selectedExpiration = expiration);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _creating ? null : _createLink,
+                icon: _creating
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.link),
+                label: const Text('Créer le lien'),
               ),
               if (_error != null)
                 Padding(
@@ -307,7 +383,7 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                   child:
                       Text(_error!, style: const TextStyle(color: Colors.red)),
                 ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               const Divider(),
               Text('Liens existants',
                   style: Theme.of(context).textTheme.titleSmall),
@@ -330,15 +406,16 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                               return Card(
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor:
-                                        _statusColor(l).withOpacity(0.15),
+                                    backgroundColor: _statusColor(context, l)
+                                        .withValues(alpha: 0.15),
                                     child: Icon(Icons.link,
-                                        color: _statusColor(l), size: 18),
+                                        color: _statusColor(context, l),
+                                        size: 18),
                                   ),
                                   title: Text(_statusLabel(l)),
                                   subtitle: Text(
                                     'Code : ${l.token.substring(0, 8)}...\n'
-                                    'Expire : ${l.expiresAt.toLocal().toString().substring(0, 16)}',
+                                    '${_usesLabel(l)} · ${_expiryLabel(l)}',
                                   ),
                                   isThreeLine: true,
                                   trailing: Row(
@@ -350,13 +427,14 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                                         tooltip: 'Historique des accès',
                                         onPressed: () => _showAccessLog(l),
                                       ),
-                                      if (l.isEffectivelyActive) ...[
+                                      if (l.isEffectivelyActive)
                                         IconButton(
                                           icon:
                                               const Icon(Icons.share, size: 20),
                                           tooltip: 'Repartager',
                                           onPressed: () => _shareToken(l.token),
                                         ),
+                                      if (l.status != ShareLinkStatus.revoked)
                                         IconButton(
                                           icon: _revoking.contains(l.id)
                                               ? const SizedBox(
@@ -374,7 +452,6 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                                               ? null
                                               : () => _revoke(l),
                                         ),
-                                      ],
                                     ],
                                   ),
                                 ),

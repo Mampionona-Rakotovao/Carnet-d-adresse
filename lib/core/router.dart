@@ -43,6 +43,10 @@ bool _isPasswordRecovery = false;
 /// lien partagé. Doit être renseignée avant la création de [router].
 String? _initialLocation;
 
+/// Lien partagé mémorisé pendant la connexion, puis rouvert une fois la
+/// session disponible.
+String? _pendingSharedLocation;
+
 /// Traduit un lien entrant en route interne, ou null si le lien n'est pas
 /// un lien de partage reconnu.
 ///
@@ -116,7 +120,6 @@ GoRouter _buildRouter() {
       final onResetPage = state.matchedLocation == '/reset-password';
       final onResetCodePage = state.matchedLocation == '/reset-code';
       final onConfirmPage = state.matchedLocation == '/confirm-email';
-      // Un lien partagé doit s'ouvrir même sans compte : le jeton suffit.
       final onSharedLink = state.matchedLocation.startsWith('/a/');
 
       // Une fois le mot de passe en cours de réinitialisation (code validé ou
@@ -125,16 +128,21 @@ GoRouter _buildRouter() {
         return onResetPage ? null : '/reset-password';
       }
 
-      if (!loggedIn &&
-          !onLoginPage &&
-          !onConfirmPage &&
-          !onResetCodePage &&
-          !onSharedLink) {
+      // Un lien partagé exige un compte : on mémorise la destination pour
+      // rouvrir le lien après la connexion.
+      if (!loggedIn && onSharedLink) {
+        _pendingSharedLocation = state.uri.toString();
+        return '/login';
+      }
+
+      if (!loggedIn && !onLoginPage && !onConfirmPage && !onResetCodePage) {
         return '/login';
       }
 
       if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
-        return '/';
+        final pending = _pendingSharedLocation;
+        _pendingSharedLocation = null;
+        return pending ?? '/';
       }
       return null;
     },

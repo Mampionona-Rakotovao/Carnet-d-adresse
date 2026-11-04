@@ -16,7 +16,7 @@ class SharedAddressEntry {
   });
 
   final String token;
-  final DateTime expiresAt;
+  final DateTime? expiresAt;
   final String name;
   final String? addressId;
   final String? locality;
@@ -30,24 +30,27 @@ class SharedAddressEntry {
 
     return SharedAddressEntry(
       token: json['token'] as String,
-      expiresAt: DateTime.parse(json['expires_at'] as String),
+      expiresAt: json['expires_at'] != null
+          ? DateTime.parse(json['expires_at'] as String)
+          : null,
       name: (address['name'] as String?) ?? 'Adresse partagée',
       addressId: address['id'] as String?,
       locality: address['locality'] as String?,
       photoUrl: address['photo_url'] as String?,
-      sharedByName: (sharedBy?['name'] as String?) ?? json['owner_name'] as String?,
+      sharedByName:
+          (sharedBy?['name'] as String?) ?? json['owner_name'] as String?,
     );
   }
 
-  /// Instants restants avant expiration. Négatif : le lien est mort mais le
-  /// serveur n'a pas encore été interrogé pour le retirer.
-  Duration get timeLeft => expiresAt.difference(DateTime.now());
+  /// Instants restants avant expiration. Null pour un lien sans expiration.
+  Duration? get timeLeft => expiresAt?.difference(DateTime.now());
 
-  bool get isExpired => timeLeft.isNegative;
+  bool get isExpired => timeLeft?.isNegative ?? false;
 
   /// Libellé du compte à rebours, du plus lisible au moins.
   String get expiryLabel {
     final left = timeLeft;
+    if (left == null) return 'Sans expiration';
     if (left.isNegative) return 'Lien expiré';
     if (left.inMinutes < 1) return "Expire à l'instant";
     if (left.inHours < 1) return 'Expire dans ${left.inMinutes} min';
