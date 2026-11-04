@@ -12,22 +12,11 @@ class MapTypeButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      children: [
-        ChoiceChip(
-          label: const Text('Map simple'),
-          avatar: const Icon(Icons.map_outlined, size: 18),
-          selected: !satellite,
-          onSelected: (_) => onChanged(false),
-        ),
-        ChoiceChip(
-          label: const Text('Map satellite'),
-          avatar: const Icon(Icons.satellite_alt, size: 18),
-          selected: satellite,
-          onSelected: (_) => onChanged(true),
-        ),
-      ],
+    return FloatingActionButton.small(
+      heroTag: null,
+      tooltip: satellite ? 'Passer en vue plan' : 'Passer en vue satellite',
+      onPressed: () => onChanged(!satellite),
+      child: Icon(satellite ? Icons.map_outlined : Icons.satellite_alt),
     );
   }
 }

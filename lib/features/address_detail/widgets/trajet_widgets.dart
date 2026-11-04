@@ -11,6 +11,11 @@ import '../../../widgets/carte_widget.dart';
 import '../../../widgets/map_type_buttons.dart';
 import '../../navigation/navigation_screen.dart';
 
+//enum _TrajetAction { itineraire, guidage, naviguer }
+
+/// Boutons de trajet communs au détail d'une adresse et au lien partagé.
+///
+/// La position GPS n'est demandée qu'au clic sur « Itinéraire » ou « Guidage ».
 /// Boutons de trajet communs au détail d'une adresse et au lien partagé.
 ///
 /// La position GPS n'est demandée qu'au clic sur « Itinéraire » ou « Guidage ».
@@ -122,49 +127,183 @@ class _TrajetBoutonsState extends State<TrajetBoutons> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.xs,
+        Row(
           children: [
-            FilledButton.tonalIcon(
-              onPressed: _routeLoading ? null : _calculerItineraire,
-              icon: _routeLoading
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.alt_route),
-              label: const Text('Itinéraire'),
-            ),
-            FilledButton.icon(
-              onPressed: _ouvrirGuidage,
-              icon: const Icon(Icons.navigation),
-              label: const Text('Guidage'),
-            ),
-            if (widget.afficherNaviguer)
-              OutlinedButton.icon(
-                onPressed: _naviguerExterne,
-                icon: const Icon(Icons.map_outlined),
-                label: const Text('Naviguer'),
+            Expanded(
+              child: _TrajetBouton(
+                label: 'Itinéraire',
+                icon: Icons.alt_route,
+                active: _route != null,
+                loading: _routeLoading,
+                onPressed: _calculerItineraire,
               ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: _TrajetBouton(
+                label: 'Guidage',
+                icon: Icons.navigation,
+                principal: true,
+                onPressed: _ouvrirGuidage,
+              ),
+            ),
+            if (widget.afficherNaviguer) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _TrajetBouton(
+                  label: 'Naviguer',
+                  icon: Icons.map_outlined,
+                  onPressed: _naviguerExterne,
+                ),
+              ),
+            ],
           ],
         ),
         if (_route != null)
           Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xs),
-            child: Text(
-              '${_route!.distanceText} • ${_route!.durationText}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: Row(
+              children: [
+                Icon(Icons.route, size: 18, color: scheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '${_route!.distanceText} • ${_route!.durationText}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Bouton de trajet : icône au-dessus, texte en dessous, largeur donnée par le parent.
+class _TrajetBouton extends StatelessWidget {
+  const _TrajetBouton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.principal = false,
+    this.active = false,
+    this.loading = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool principal; // action mise en avant (Guidage)
+  final bool active; // état « activé » (itinéraire affiché)
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final Color fond;
+    final Color texte;
+    if (principal) {
+      fond = scheme.primary;
+      texte = scheme.onPrimary;
+    } else if (active) {
+      fond = scheme.primaryContainer;
+      texte = scheme.onPrimaryContainer;
+    } else {
+      fond = scheme.surfaceContainerHighest;
+      texte = scheme.onSurface;
+    }
+
+    final radius = BorderRadius.circular(AppRadius.sm);
+
+    return Material(
+      color: fond,
+      borderRadius: radius,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: loading ? null : onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Hauteur fixe pour que le bouton ne change pas de taille au chargement.
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: loading
+                    ? Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: texte,
+                        ),
+                      )
+                    : Icon(icon, size: 22, color: texte),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: texte,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrajetToggleChip extends StatelessWidget {
+  const _TrajetToggleChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onSelected,
+    this.loading = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: loading
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(label),
+              ],
+            )
+          : Text(label),
+      avatar: loading ? null : Icon(icon, size: 18),
+      selected: selected,
+      onSelected: loading ? null : onSelected,
     );
   }
 }
