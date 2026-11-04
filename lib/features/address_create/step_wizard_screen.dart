@@ -5,6 +5,7 @@ import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../address_detail/widgets/landmark_form_sheet.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_states.dart';
 
 /// Écran affiché juste après la création d'une adresse : guide l'utilisateur
 /// dans l'ordre « repères » puis « étapes du trajet », sans quitter l'écran.
@@ -32,6 +33,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
   final List<RouteStep> _steps = [];
   List<Landmark> _landmarks = [];
   bool _saving = false;
+  bool _loadingLandmarks = true;
+  String? _landmarksError;
   String? _error;
 
   /// 0 = repères, 1 = étapes.
@@ -44,15 +47,28 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
   }
 
   Future<void> _loadLandmarks() async {
-    final rows = await supabase
-        .from('landmarks')
-        .select()
-        .eq('address_id', widget.addressId)
-        .order('position_order');
-    if (!mounted) return;
-    setState(() {
-      _landmarks = (rows as List).map((r) => Landmark.fromJson(r)).toList();
-    });
+    if (mounted) {
+      setState(() {
+        _loadingLandmarks = true;
+        _landmarksError = null;
+      });
+    }
+    try {
+      final rows = await supabase
+          .from('landmarks')
+          .select()
+          .eq('address_id', widget.addressId)
+          .order('position_order');
+      if (!mounted) return;
+      setState(() {
+        _landmarks = (rows as List).map((r) => Landmark.fromJson(r)).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _landmarksError = e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingLandmarks = false);
+    }
   }
 
   Future<void> _addLandmark() async {
@@ -130,7 +146,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
             child: Row(
               children: [
                 Expanded(
@@ -160,7 +177,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
               child: _page == 0
                   ? SizedBox(
                       width: double.infinity,
@@ -189,6 +207,11 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
   }
 
   Widget _buildLandmarksPage() {
+    if (_loadingLandmarks) return const AppLoading();
+    if (_landmarksError != null) {
+      return AppErrorState(error: _landmarksError, onRetry: _loadLandmarks);
+    }
+
     return ListView(
       padding: AppSpacing.form,
       children: [
@@ -204,7 +227,9 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
           onPressed: _addLandmark,
           icon: const Icon(Icons.add_circle_outline),
           label: Text(
-            _landmarks.isEmpty ? 'Ajouter un premier repère' : 'Ajouter un repère',
+            _landmarks.isEmpty
+                ? 'Ajouter un premier repère'
+                : 'Ajouter un repère',
           ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -222,7 +247,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
             (l) => Card(
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundImage: l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
+                  backgroundImage:
+                      l.photoUrl != null ? NetworkImage(l.photoUrl!) : null,
                   child: l.photoUrl == null ? const Icon(Icons.place) : null,
                 ),
                 title: Text(l.name),
@@ -255,7 +281,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
                     leading: CircleAvatar(child: Text('${s.stepOrder}')),
                     title: Text(s.instruction),
                     subtitle: Text([
-                      if (s.distance != null) '${s.distance!.toStringAsFixed(0)} m',
+                      if (s.distance != null)
+                        '${s.distance!.toStringAsFixed(0)} m',
                       if (s.direction != null) s.direction!,
                       if (landmark != null) 'Repère : ${landmark.name}',
                     ].join(' · ')),
@@ -286,7 +313,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
                     controller: _instructionController,
                     decoration: const InputDecoration(
                       labelText: 'Instruction *',
-                      hintText: 'Ex: Prendre le chemin à droite après le grand arbre',
+                      hintText:
+                          'Ex: Prendre le chemin à droite après le grand arbre',
                       border: OutlineInputBorder(),
                     ),
                     maxLines: 2,
@@ -343,7 +371,8 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
                   if (_error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                      child: Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
                     ),
                   FilledButton.icon(
                     onPressed: _saving ? null : _addStep,

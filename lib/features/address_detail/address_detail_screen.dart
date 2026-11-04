@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/favorites.dart';
+import '../../core/photo_storage.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
@@ -33,7 +34,10 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   List<RouteStep> _steps = [];
   bool _isFavorite = false;
   bool _loading = true;
-  String? _error;
+  bool _notFound = false;
+  bool _deleting = false;
+  bool _busy = false;
+  Object? _error;
 
   /// Seul le propriétaire voit les actions de modification. La RLS protège
   /// déjà le serveur, mais l'interface ne doit pas non plus proposer des
@@ -47,17 +51,30 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     _loadAll();
   }
 
-  Future<void> _loadAll() async {
+  Future<void> _loadAll({bool showLoading = true}) async {
+    if (!mounted) return;
     setState(() {
-      _loading = true;
+      if (showLoading) _loading = true;
       _error = null;
+      _notFound = false;
     });
     try {
       final addressRow = await supabase
           .from('addresses')
           .select()
           .eq('id', widget.addressId)
-          .single();
+          .maybeSingle();
+
+      if (addressRow == null) {
+        if (!mounted) return;
+        setState(() {
+          _address = null;
+          _landmarks = [];
+          _steps = [];
+          _notFound = true;
+        });
+        return;
+      }
 
       final landmarkRows = await supabase
           .from('landmarks')
@@ -72,6 +89,7 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           .order('step_order');
 
       final favorite = await isFavorite(widget.addressId);
+      if (!mounted) return;
 
       setState(() {
         _address = Address.fromJson(addressRow);
@@ -81,7 +99,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         _isFavorite = favorite;
       });
     } catch (e) {
-      if (mounted) AppSnack.error(context, e);
+      if (!mounted) return;
+      setState(() => _error = e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -112,20 +131,61 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     return confirmed ?? false;
   }
 
+  void _leaveDeleted() {
+    if (context.canPop()) {
+      context.pop(true);
+    } else {
+      context.go('/');
+    }
+  }
+
   Future<void> _deleteAddress() async {
+    final address = _address;
+    final addressId = address?.id;
+    if (address == null || addressId == null || _deleting) return;
+
     if (!await _confirm(
       'Supprimer cette adresse ?',
-      'Cette action est irréversible : "${_address!.name}" et toutes ses '
+      'Cette action est irréversible : "${address.name}" et toutes ses '
           'données associées (repères, étapes, favoris, liens de partage) '
           'seront supprimés.',
-    )) return;
+    )) {
+      return;
+    }
+    if (!mounted) return;
 
+    setState(() => _deleting = true);
     try {
-      await supabase.from('addresses').delete().eq('id', _address!.id!);
-      if (mounted) context.pop();
+      final deleted = await supabase
+          .from('addresses')
+          .delete()
+          .eq('id', addressId)
+          .select();
+
+      if ((deleted as List).isEmpty) {
+        if (!mounted) return;
+        AppSnack.error(
+          context,
+          Exception('delete address returned no row'),
+          fallback: "Suppression impossible : l'adresse n'a pas été supprimée. "
+              'Vérifiez vos droits puis réessayez.',
+        );
+        return;
+      }
+
+      await removePhotoFolder(addressId);
+      if (!mounted) return;
+      _leaveDeleted();
     } catch (e) {
       if (!mounted) return;
-      AppSnack.error(context, e);
+      AppSnack.error(
+        context,
+        e,
+        fallback:
+            "Suppression impossible. Vérifiez votre connexion et réessayez.",
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -139,10 +199,48 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   }
 
   Future<void> _deleteLandmark(Landmark l) async {
-    if (!await _confirm('Supprimer ce repère ?', '"${l.name}" sera supprimé.'))
+    final landmarkId = l.id;
+    if (landmarkId == null || _busy) return;
+
+    if (!await _confirm(
+      'Supprimer ce repère ?',
+      '"${l.name}" sera supprimé.',
+    )) {
       return;
-    await supabase.from('landmarks').delete().eq('id', l.id!);
-    _loadAll();
+    }
+    if (!mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final deleted = await supabase
+          .from('landmarks')
+          .delete()
+          .eq('id', landmarkId)
+          .select();
+
+      if ((deleted as List).isEmpty) {
+        if (!mounted) return;
+        AppSnack.error(
+          context,
+          Exception('delete landmark returned no row'),
+          fallback: 'Suppression impossible : le repère n\'a pas été supprimé.',
+        );
+        return;
+      }
+
+      await removePhotoAtUrl(l.photoUrl);
+      await _loadAll(showLoading: false);
+      if (mounted) AppSnack.success(context, 'Repère supprimé.');
+    } catch (e) {
+      if (!mounted) return;
+      AppSnack.error(
+        context,
+        e,
+        fallback: "Suppression du repère impossible. Réessayez.",
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _editStep(RouteStep s) async {
@@ -157,10 +255,44 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   }
 
   Future<void> _deleteStep(RouteStep s) async {
-    if (!await _confirm('Supprimer cette étape ?', 'L\'étape sera supprimée.'))
+    final stepId = s.id;
+    if (stepId == null || _busy) return;
+
+    if (!await _confirm(
+      'Supprimer cette étape ?',
+      'L\'étape sera supprimée.',
+    )) {
       return;
-    await supabase.from('route_steps').delete().eq('id', s.id!);
-    _loadAll();
+    }
+    if (!mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final deleted =
+          await supabase.from('route_steps').delete().eq('id', stepId).select();
+
+      if ((deleted as List).isEmpty) {
+        if (!mounted) return;
+        AppSnack.error(
+          context,
+          Exception('delete route step returned no row'),
+          fallback: 'Suppression impossible : l\'étape n\'a pas été supprimée.',
+        );
+        return;
+      }
+
+      await _loadAll(showLoading: false);
+      if (mounted) AppSnack.success(context, 'Étape supprimée.');
+    } catch (e) {
+      if (!mounted) return;
+      AppSnack.error(
+        context,
+        e,
+        fallback: "Suppression de l'étape impossible. Réessayez.",
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   /// Détail d'un repère : tout son contenu plus les étapes du trajet qui lui
@@ -219,11 +351,14 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   /// Bascule l'étoile : l'icône change immédiatement, l'écriture en base
   /// suit. En cas d'échec on restaure l'état précédent et on prévient.
   Future<void> _toggleFavorite() async {
+    final addressId = _address?.id;
+    if (addressId == null) return;
+
     final previous = _isFavorite;
     setState(() => _isFavorite = !previous);
 
     try {
-      await toggleFavorite(_address!.id!, previous);
+      await toggleFavorite(addressId, previous);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isFavorite = previous);
@@ -242,6 +377,20 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         body: AppErrorState(
           error: _error,
           onRetry: _loadAll,
+        ),
+      );
+    }
+    if (_notFound || _address == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: AppEmptyState(
+          icon: Icons.location_off_outlined,
+          title: 'Cette adresse n\'existe plus',
+          message: 'Elle a peut-être été supprimée depuis un autre appareil. '
+              'La liste va être mise à jour.',
+          actionLabel: 'Retour à la liste',
+          actionIcon: Icons.arrow_back,
+          onAction: _leaveDeleted,
         ),
       );
     }
@@ -277,9 +426,15 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline),
+              icon: _deleting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline),
               tooltip: 'Supprimer',
-              onPressed: _deleteAddress,
+              onPressed: _deleting ? null : _deleteAddress,
             ),
           ],
         ],
@@ -381,11 +536,12 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => _editLandmark(l),
+                              onPressed: _busy ? null : () => _editLandmark(l),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20),
-                              onPressed: () => _deleteLandmark(l),
+                              onPressed:
+                                  _busy ? null : () => _deleteLandmark(l),
                             ),
                           ],
                         )
@@ -446,11 +602,11 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => _editStep(s),
+                              onPressed: _busy ? null : () => _editStep(s),
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20),
-                              onPressed: () => _deleteStep(s),
+                              onPressed: _busy ? null : () => _deleteStep(s),
                             ),
                           ],
                         )

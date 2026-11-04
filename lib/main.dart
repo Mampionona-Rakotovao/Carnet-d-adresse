@@ -13,8 +13,85 @@ import 'ui/app_feedback.dart';
 /// comme `redirectTo` pour la réinitialisation de mot de passe.
 const _mobileScheme = 'carnetadresses';
 
+/// Journalise les erreurs non gérées et remplace, en production uniquement,
+/// l'écran rouge de Flutter par un message sobre en français. En debug, on
+/// garde l'écran par défaut pour continuer à voir les vraies erreurs.
+void _installErrorHandlers() {
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('Erreur Flutter : ${details.exceptionAsString()}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Erreur non gérée : $error\n$stack');
+    return true;
+  };
+
+  ErrorWidget.builder = (details) {
+    if (!kReleaseMode) return ErrorWidget(details.exception);
+    return const _AppErrorFallback();
+  };
+}
+
+class _AppErrorFallback extends StatelessWidget {
+  const _AppErrorFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Material(
+        color: const Color(0xFFFDFDFE),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Color(0xFFB3261E),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Une erreur est survenue',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1B1B1F),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Revenez à l\'accueil pour continuer.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF49454F),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: () => router.go('/'),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Retour'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _installErrorHandlers();
 
   // Le lien de réinitialisation reçu par email ouvre l'app sur
   // /reset-password. Sur le web, Supabase consomme le code pendant

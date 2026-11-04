@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../core/photo_storage.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
@@ -39,6 +40,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
   Uint8List? _pickedPhotoBytes;
   String? _pickedPhotoExt;
   String? _existingPhotoUrl;
+  String? _originalPhotoUrl;
 
   bool _locatingGps = false;
   bool _saving = false;
@@ -58,6 +60,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     _latitude = existing?.latitude;
     _longitude = existing?.longitude;
     _existingPhotoUrl = existing?.photoUrl;
+    _originalPhotoUrl = existing?.photoUrl;
   }
 
   @override
@@ -187,6 +190,10 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
             .from('addresses')
             .update(address.toInsertJson())
             .eq('id', widget.existingAddress!.id!);
+
+        if (_originalPhotoUrl != null && _originalPhotoUrl != photoUrl) {
+          await removePhotoAtUrl(_originalPhotoUrl);
+        }
         if (mounted) context.pop(true);
       } else {
         final address = Address(

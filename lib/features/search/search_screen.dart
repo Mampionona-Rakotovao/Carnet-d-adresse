@@ -74,8 +74,24 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  Future<void> _openAddress(Address address) async {
+    final id = address.id;
+    if (id == null) return;
+
+    final deleted = await context.push<bool>('/address/$id');
+    if (!mounted || deleted != true) return;
+    setState(() {
+      _results.removeWhere((item) => item.id == id);
+      _landmarkMatches.remove(id);
+      _favoriteIds.remove(id);
+    });
+  }
+
   Future<_SearchResults> _runQuery() async {
-    final userId = supabase.auth.currentUser!.id;
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Session expirée. Reconnectez-vous.');
+    }
     final query = _controller.text.trim();
 
     List<String>? sharedIds;
@@ -85,8 +101,9 @@ class _SearchScreenState extends State<SearchScreen> {
           .select('address_id')
           .eq('user_id', userId)
           .isFilter('revoked_at', null);
-      sharedIds =
-          (permissionRows as List).map((r) => r['address_id'] as String).toList();
+      sharedIds = (permissionRows as List)
+          .map((r) => r['address_id'] as String)
+          .toList();
       if (sharedIds.isEmpty) return _SearchResults([], {});
     }
 
@@ -232,7 +249,8 @@ class _SearchScreenState extends State<SearchScreen> {
       return const AppEmptyState(
         icon: Icons.search_off_outlined,
         title: 'Aucun résultat',
-        message: 'Essayez un autre terme ou modifiez le périmètre de recherche.',
+        message:
+            'Essayez un autre terme ou modifiez le périmètre de recherche.',
       );
     }
     if (_loading && _results.isEmpty) {
@@ -257,7 +275,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           child: Card(
             child: ListTile(
-              onTap: () => context.push('/address/${a.id}'),
+              onTap: () => _openAddress(a),
               leading: a.photoUrl != null
                   ? CircleAvatar(backgroundImage: NetworkImage(a.photoUrl!))
                   : CircleAvatar(
@@ -288,7 +306,8 @@ class _SearchScreenState extends State<SearchScreen> {
                         _favoriteIds.remove(a.id);
                       });
                       if (mounted) {
-                        AppSnack.info(context, '"${a.name}" retiré des favoris');
+                        AppSnack.info(
+                            context, '"${a.name}" retiré des favoris');
                       }
                     } else {
                       await addFavorite(a.id!);
@@ -297,7 +316,8 @@ class _SearchScreenState extends State<SearchScreen> {
                         _favoriteIds.add(a.id!);
                       });
                       if (mounted) {
-                        AppSnack.success(this.context, '"${a.name}" ajouté aux favoris');
+                        AppSnack.success(
+                            this.context, '"${a.name}" ajouté aux favoris');
                       }
                     }
                   } catch (e) {

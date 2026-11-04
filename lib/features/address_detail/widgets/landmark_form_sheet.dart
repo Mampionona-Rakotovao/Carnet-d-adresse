@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/photo_storage.dart';
 import '../../../core/supabase_client.dart';
 import '../../../models/landmark.dart';
 
@@ -47,6 +48,7 @@ class _LandmarkFormSheetState extends State<_LandmarkFormSheet> {
   Uint8List? _pickedBytes;
   String? _pickedFileName;
   String? _existingPhotoUrl;
+  String? _originalPhotoUrl;
   bool _saving = false;
   String? _error;
 
@@ -57,11 +59,12 @@ class _LandmarkFormSheetState extends State<_LandmarkFormSheet> {
     _descriptionController =
         TextEditingController(text: widget.existing?.description ?? '');
     _existingPhotoUrl = widget.existing?.photoUrl;
+    _originalPhotoUrl = widget.existing?.photoUrl;
   }
 
   Future<void> _pickImage() async {
-    final picked =
-        await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600);
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, maxWidth: 1600);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     setState(() {
@@ -112,6 +115,10 @@ class _LandmarkFormSheetState extends State<_LandmarkFormSheet> {
             .from('landmarks')
             .update(landmark.toInsertJson())
             .eq('id', widget.existing!.id!);
+
+        if (_originalPhotoUrl != null && _originalPhotoUrl != photoUrl) {
+          await removePhotoAtUrl(_originalPhotoUrl);
+        }
       } else {
         await supabase.from('landmarks').insert(landmark.toInsertJson());
       }
@@ -160,18 +167,20 @@ class _LandmarkFormSheetState extends State<_LandmarkFormSheet> {
                     : (_existingPhotoUrl != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.network(_existingPhotoUrl!, fit: BoxFit.cover),
+                            child: Image.network(_existingPhotoUrl!,
+                                fit: BoxFit.cover),
                           )
                         : const Center(
-                            child: Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
+                            child: Icon(Icons.add_a_photo,
+                                size: 40, color: Colors.grey),
                           )),
               ),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _nameController,
-              decoration:
-                  const InputDecoration(labelText: 'Nom *', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                  labelText: 'Nom *', border: OutlineInputBorder()),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Nom obligatoire' : null,
             ),

@@ -18,65 +18,77 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final Stream<List<Map<String, dynamic>>> _addressesStream;
+  final Set<String> _deletedAddressIds = {};
 
   @override
   void initState() {
     super.initState();
-    final userId = supabase.auth.currentUser!.id;
-    _addressesStream = supabase
-        .from('addresses')
-        .stream(primaryKey: ['id'])
-        .eq('owner_id', userId)
-        .order('created_at', ascending: false);
+    final userId = supabase.auth.currentUser?.id;
+    _addressesStream = userId == null
+        ? Stream<List<Map<String, dynamic>>>.value(const [])
+        : supabase
+            .from('addresses')
+            .stream(primaryKey: ['id'])
+            .eq('owner_id', userId)
+            .order('created_at', ascending: false);
   }
 
-    Future<void> _confirmLogout() async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) {
-      final scheme = Theme.of(context).colorScheme;
-      return AlertDialog(
-        icon: Icon(Icons.logout, color: scheme.error),
-        title: const Text('Se déconnecter ?', textAlign: TextAlign.center),
-        content: const Text(
-          'Vous devrez vous reconnecter pour accéder à vos adresses.',
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-        actionsOverflowDirection: VerticalDirection.down,
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: scheme.error,
-                foregroundColor: scheme.onError,
-                minimumSize: const Size.fromHeight(48),
-              ),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Déconnexion'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-  if (confirmed == true && mounted) {
-    await supabase.auth.signOut();
+  Future<void> _openAddress(Address address) async {
+    final id = address.id;
+    if (id == null) return;
+
+    final deleted = await context.push<bool>('/address/$id');
+    if (!mounted || deleted != true) return;
+    setState(() => _deletedAddressIds.add(id));
   }
-}
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.logout, color: scheme.error),
+          title: const Text('Se déconnecter ?', textAlign: TextAlign.center),
+          content: const Text(
+            'Vous devrez vous reconnecter pour accéder à vos adresses.',
+            textAlign: TextAlign.center,
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          actionsOverflowDirection: VerticalDirection.down,
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.error,
+                  foregroundColor: scheme.onError,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Déconnexion'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Annuler'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true && mounted) {
+      await supabase.auth.signOut();
+    }
+  }
 
   PreferredSizeWidget _appBar() => AppBar(
         title: const Text('Mes adresses'),
@@ -181,9 +193,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 error: snapshot.error, onRetry: () => setState(() {})),
           );
         }
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return _shell(const AppLoading());
+        }
 
-        final addresses =
-            (snapshot.data ?? []).map((row) => Address.fromJson(row)).toList();
+        final addresses = (snapshot.data ?? [])
+            .where((row) => !_deletedAddressIds.contains(row['id']))
+            .map((row) => Address.fromJson(row))
+            .toList();
 
         return _shell(
           addresses.isEmpty
@@ -246,7 +264,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           bottom:
                               index < addresses.length - 1 ? AppSpacing.sm : 0,
                         ),
-                        child: _AddressCard(address: a),
+                        child: _AddressCard(
+                          address: a,
+                          onTap: () => _openAddress(a),
+                        ),
                       );
                     }),
                   ],
@@ -264,9 +285,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _AddressCard extends StatelessWidget {
-  const _AddressCard({required this.address});
+  const _AddressCard({required this.address, required this.onTap});
 
   final Address address;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +303,7 @@ class _AddressCard extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        onTap: () => context.push('/address/${address.id}'),
+        onTap: onTap,
         borderRadius: AppRadius.cardRadius,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),

@@ -7,7 +7,13 @@ import 'supabase_client.dart';
 /// "addresses" qui filtre, au moment de la lecture, ce qui est réellement
 /// visible. Une adresse retirée des droits disparaît donc d'elle-même des
 /// listes, sans qu'il faille nettoyer "favorites".
-String get _currentUserId => supabase.auth.currentUser!.id;
+String get _currentUserId {
+  final id = supabase.auth.currentUser?.id;
+  if (id == null) {
+    throw StateError('Session expirée. Reconnectez-vous.');
+  }
+  return id;
+}
 
 /// Ids des adresses mises en favori, du plus récent au plus ancien.
 Future<List<String>> favoriteAddressIds() async {

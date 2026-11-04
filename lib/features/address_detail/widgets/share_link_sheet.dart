@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/supabase_client.dart';
 import '../../../models/share_link.dart';
+import '../../../ui/app_feedback.dart';
 
 /// Panneau de gestion du partage d'une adresse : création de nouveaux
 /// liens temporaires et révocation des liens existants.
-Future<void> showShareLinkSheet(BuildContext context, {required String addressId}) {
+Future<void> showShareLinkSheet(BuildContext context,
+    {required String addressId}) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -39,6 +41,7 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
   String? _error;
   List<ShareLink> _links = [];
   bool _loadingLinks = true;
+  final Set<String> _revoking = {};
 
   @override
   void initState() {
@@ -54,10 +57,12 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
           .select()
           .eq('address_id', widget.addressId)
           .order('created_at', ascending: false);
+      if (!mounted) return;
       setState(() {
         _links = (rows as List).map((r) => ShareLink.fromJson(r)).toList();
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loadingLinks = false);
@@ -96,25 +101,74 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
   }
 
   Future<void> _shareToken(String token) async {
-  final link = '$_shareBaseUrl$token';
-  await Share.share(
-    "📍 Une adresse a été partagée avec toi sur Carnet d'adresses.\n\n"
-    "Appuie sur le lien pour l'ouvrir :\n$link",
-  );
-}
+    final link = '$_shareBaseUrl$token';
+    await Share.share(
+      "📍 Une adresse a été partagée avec toi sur Carnet d'adresses.\n\n"
+      "Appuie sur le lien pour l'ouvrir :\n$link",
+    );
+  }
 
   Future<void> _revoke(ShareLink link) async {
+    if (_revoking.contains(link.id)) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Révoquer ce lien ?'),
+        content: const Text(
+          'Le lien ne fonctionnera plus pour les personnes qui le possèdent.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              foregroundColor: Colors.red,
+              backgroundColor: Colors.red.shade50,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Révoquer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _revoking.add(link.id));
     try {
-      await supabase.from('share_links').update({
-        'status': 'REVOKED',
-        'revoked_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', link.id);
-      _loadLinks();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+      final updated = await supabase
+          .from('share_links')
+          .update({
+            'status': 'REVOKED',
+            'revoked_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', link.id)
+          .select();
+
+      if ((updated as List).isEmpty) {
+        if (!mounted) return;
+        AppSnack.error(
+          context,
+          Exception('revoke share link returned no row'),
+          fallback:
+              'Révocation impossible : vous n\'avez pas les droits nécessaires.',
+        );
+        return;
       }
+
+      await _loadLinks();
+      if (mounted) AppSnack.success(context, 'Lien révoqué.');
+    } catch (e) {
+      if (!mounted) return;
+      AppSnack.error(
+        context,
+        e,
+        fallback: 'Révocation impossible. Réessayez.',
+      );
+    } finally {
+      if (mounted) setState(() => _revoking.remove(link.id));
     }
   }
 
@@ -152,10 +206,12 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                   itemBuilder: (context, index) {
                     final u = uses[index];
                     final profile = u['profiles'] as Map<String, dynamic>?;
-                    final usedAt = DateTime.parse(u['used_at'] as String).toLocal();
+                    final usedAt =
+                        DateTime.parse(u['used_at'] as String).toLocal();
                     return ListTile(
                       leading: const Icon(Icons.person_outline),
-                      title: Text(profile?['name'] as String? ?? 'Utilisateur inconnu'),
+                      title: Text(
+                          profile?['name'] as String? ?? 'Utilisateur inconnu'),
                       subtitle: Text(
                         '${profile?['email'] ?? ''}\n'
                         '${usedAt.toString().substring(0, 16)}',
@@ -212,7 +268,8 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Partager cette adresse', style: Theme.of(context).textTheme.titleMedium),
+              Text('Partager cette adresse',
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -224,7 +281,8 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                         border: OutlineInputBorder(),
                       ),
                       items: _durations.keys
-                          .map((label) => DropdownMenuItem(value: label, child: Text(label)))
+                          .map((label) => DropdownMenuItem(
+                              value: label, child: Text(label)))
                           .toList(),
                       onChanged: (v) => setState(() => _selectedLabel = v!),
                     ),
@@ -246,11 +304,13 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                  child:
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
                 ),
               const SizedBox(height: 16),
               const Divider(),
-              Text('Liens existants', style: Theme.of(context).textTheme.titleSmall),
+              Text('Liens existants',
+                  style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               Expanded(
                 child: _loadingLinks
@@ -270,8 +330,10 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                               return Card(
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: _statusColor(l).withOpacity(0.15),
-                                    child: Icon(Icons.link, color: _statusColor(l), size: 18),
+                                    backgroundColor:
+                                        _statusColor(l).withOpacity(0.15),
+                                    child: Icon(Icons.link,
+                                        color: _statusColor(l), size: 18),
                                   ),
                                   title: Text(_statusLabel(l)),
                                   subtitle: Text(
@@ -283,20 +345,34 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(Icons.history, size: 20),
+                                        icon:
+                                            const Icon(Icons.history, size: 20),
                                         tooltip: 'Historique des accès',
                                         onPressed: () => _showAccessLog(l),
                                       ),
                                       if (l.isEffectivelyActive) ...[
                                         IconButton(
-                                          icon: const Icon(Icons.share, size: 20),
+                                          icon:
+                                              const Icon(Icons.share, size: 20),
                                           tooltip: 'Repartager',
                                           onPressed: () => _shareToken(l.token),
                                         ),
                                         IconButton(
-                                          icon: const Icon(Icons.block, size: 20),
+                                          icon: _revoking.contains(l.id)
+                                              ? const SizedBox(
+                                                  height: 18,
+                                                  width: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                                )
+                                              : const Icon(Icons.block,
+                                                  size: 20),
                                           tooltip: 'Révoquer',
-                                          onPressed: () => _revoke(l),
+                                          onPressed: _revoking.contains(l.id)
+                                              ? null
+                                              : () => _revoke(l),
                                         ),
                                       ],
                                     ],

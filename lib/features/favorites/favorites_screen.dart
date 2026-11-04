@@ -45,6 +45,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     await future;
   }
 
+  Future<void> _openAddress(Address address) async {
+    final id = address.id;
+    if (id == null) return;
+
+    final deleted = await context.push<bool>('/address/$id');
+    if (!mounted || deleted != true) return;
+    await _refresh();
+  }
+
   Future<void> _remove(Address a) async {
     try {
       await removeFavorite(a.id!);
@@ -94,7 +103,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               return const AppEmptyState(
                 icon: Icons.star_border,
                 title: 'Aucun favori pour le moment',
-                message: 'Ajoutez des adresses à vos favoris pour les retrouver ici.',
+                message:
+                    'Ajoutez des adresses à vos favoris pour les retrouver ici.',
               );
             }
             return ListView.builder(
@@ -108,14 +118,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   ),
                   child: Card(
                     child: ListTile(
-                      onTap: () => context.push('/address/${a.id}'),
+                      onTap: () => _openAddress(a),
                       leading: a.photoUrl != null
-                          ? CircleAvatar(backgroundImage: NetworkImage(a.photoUrl!))
+                          ? CircleAvatar(
+                              backgroundImage: NetworkImage(a.photoUrl!))
                           : CircleAvatar(
-                              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer,
                               child: Icon(
                                 Icons.star,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer,
                               ),
                             ),
                       title: Text(a.name),

@@ -86,6 +86,8 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final address = _address;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Adresse partagée'),
@@ -106,16 +108,23 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
                 )
               : _error != null
                   ? AppErrorState(error: _error, onRetry: _load)
-                  : ListView(
-                      padding: AppSpacing.form,
-                      children: [
-                        SharedAddressContent(
-                          address: _address!,
-                          landmarks: _landmarks,
-                          steps: _steps,
+                  : address == null
+                      ? AppErrorState(
+                          title: 'Adresse introuvable',
+                          message: 'Cette adresse n\'est plus disponible. '
+                              'Demandez un nouveau lien au propriétaire.',
+                          onRetry: _load,
+                        )
+                      : ListView(
+                          padding: AppSpacing.form,
+                          children: [
+                            SharedAddressContent(
+                              address: address,
+                              landmarks: _landmarks,
+                              steps: _steps,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
     );
   }
 }
