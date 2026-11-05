@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/supabase_client.dart';
 import '../../../models/share_link.dart';
 import '../../../ui/app_feedback.dart';
+import '../../help/widgets/contextual_help_button.dart';
 
 /// Panneau de gestion du partage d'une adresse : création de nouveaux
 /// liens temporaires et révocation des liens existants.
@@ -331,8 +332,23 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Partager cette adresse',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Partager cette adresse',
+                        style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                  const ContextualHelpButton(
+                    articleIds: [
+                      'creer-partage',
+                      'duree-partage',
+                      'personnes-partage',
+                      'revoquer-partage',
+                    ],
+                    title: 'Aide sur le partage',
+                  ),
+                ],
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _selectedMaxUsesLabel,

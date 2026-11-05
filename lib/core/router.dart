@@ -13,6 +13,9 @@ import '../features/address_create/step_wizard_screen.dart';
 import '../features/address_detail/address_detail_screen.dart';
 import '../features/search/search_screen.dart';
 import '../features/favorites/favorites_screen.dart';
+import '../features/help/screens/help_article_screen.dart';
+import '../features/help/screens/help_category_screen.dart';
+import '../features/help/screens/help_center_screen.dart';
 import '../features/share/redeem_share_screen.dart';
 import '../features/share/shared_with_me_screen.dart';
 import '../features/share/shared_link_screen.dart';
@@ -201,6 +204,22 @@ GoRouter _buildRouter() {
       GoRoute(
         path: '/shared',
         builder: (context, state) => const SharedWithMeScreen(),
+      ),
+      GoRoute(
+        path: '/aide',
+        builder: (context, state) => const HelpCenterScreen(),
+      ),
+      GoRoute(
+        path: '/aide/categorie/:categorie',
+        builder: (context, state) => HelpCategoryScreen(
+          categoryName: state.pathParameters['categorie']!,
+        ),
+      ),
+      GoRoute(
+        path: '/aide/:id',
+        builder: (context, state) => HelpArticleScreen(
+          articleId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/address/create',

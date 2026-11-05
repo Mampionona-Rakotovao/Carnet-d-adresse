@@ -10,6 +10,7 @@ import '../../core/photo_storage.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../help/widgets/contextual_help_button.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/section.dart';
 import '../../ui/status_chip.dart';
@@ -245,6 +246,18 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
       appBar: AppBar(
         title:
             Text(widget.isEditMode ? "Modifier l'adresse" : 'Nouvelle adresse'),
+        actions: [
+          ContextualHelpButton(
+            articleIds: [
+              if (widget.isEditMode) 'modifier-adresse' else 'creer-adresse',
+              'photo-adresse',
+              'position-gps',
+              'type-reperage',
+              'visibilite',
+            ],
+            title: 'Aide sur le formulaire',
+          ),
+        ],
       ),
       body: Form(
         key: _formKey,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/app_scaffold.dart';
+import '../../core/onboarding.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_mode_controller.dart';
@@ -8,6 +9,7 @@ import '../../models/address.dart';
 import '../../ui/app_states.dart';
 import '../../ui/section.dart';
 import '../../ui/status_chip.dart';
+import '../help/widgets/onboarding_tour.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +33,14 @@ class _HomeScreenState extends State<HomeScreen> {
             .stream(primaryKey: ['id'])
             .eq('owner_id', userId)
             .order('created_at', ascending: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowOnboarding());
+  }
+
+  Future<void> _maybeShowOnboarding() async {
+    if (!mounted) return;
+    if (await OnboardingStorage.alreadySeen()) return;
+    if (!mounted) return;
+    await showOnboardingTour(context);
   }
 
   Future<void> _openAddress(Address address) async {
@@ -104,6 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 context.push('/address/create');
               } else if (value == 'shared_with_me') {
                 context.push('/shared');
+              } else if (value == 'help') {
+                context.push('/aide');
               } else if (value == 'logout') {
                 _confirmLogout();
               }
@@ -150,6 +162,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListTile(
                     leading: Icon(Icons.share_location),
                     title: Text('Partagées avec moi'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'help',
+                  child: ListTile(
+                    leading: Icon(Icons.help_outline),
+                    title: Text('Aide'),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),

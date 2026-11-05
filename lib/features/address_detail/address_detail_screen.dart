@@ -8,6 +8,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
+import '../help/widgets/contextual_help_button.dart';
 import 'widgets/detail_widgets.dart';
 import 'widgets/landmark_detail_sheet.dart';
 import 'widgets/landmark_form_sheet.dart';
@@ -487,7 +488,24 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               style: Theme.of(context).textTheme.titleSmall),
           Text(
               '${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Text('Trajet', style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              const ContextualHelpButton(
+                articleIds: [
+                  'difference-trajet',
+                  'itineraire',
+                  'guidage',
+                  'naviguer-google-maps',
+                  'limites-trajet',
+                ],
+                title: 'Aide sur le trajet',
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
           TrajetSection(
             destination: LatLng(address.latitude, address.longitude),
             nom: address.name,
@@ -502,9 +520,18 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
 
           // ---- Repères ----
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Repères', style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              const ContextualHelpButton(
+                articleIds: [
+                  'quest-ce-repere',
+                  'ajouter-repere',
+                  'bien-choisir-repere',
+                  'modifier-supprimer-repere',
+                ],
+                title: 'Aide sur les repères',
+              ),
               if (isOwner)
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
@@ -555,10 +582,19 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
 
           // ---- Étapes ----
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Étapes du trajet',
                   style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              const ContextualHelpButton(
+                articleIds: [
+                  'ajouter-etape',
+                  'ordre-etapes',
+                  'bonne-description-etape',
+                  'modifier-supprimer-etape',
+                ],
+                title: 'Aide sur les étapes',
+              ),
               if (isOwner)
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
