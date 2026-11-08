@@ -7,6 +7,7 @@ import '../../../ui/app_feedback.dart';
 import '../../../ui/app_states.dart';
 import '../../../ui/section.dart';
 import '../data/help_content.dart';
+import '../help_navigation.dart';
 import '../support.dart';
 import '../widgets/help_article_tile.dart';
 
@@ -131,7 +132,7 @@ class _HelpArticleScreenState extends State<HelpArticleScreen> {
           if (article.openRoute != null && article.openLabel != null) ...[
             const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
-              onPressed: () => context.push(article.openRoute!),
+              onPressed: () => openHelpRoute(context, article.openRoute!),
               icon: const Icon(Icons.open_in_new),
               label: Text(article.openLabel!),
             ),
