@@ -20,7 +20,7 @@ import '../features/share/redeem_share_screen.dart';
 import '../features/share/shared_with_me_screen.dart';
 import '../features/share/shared_link_screen.dart';
 import '../models/address.dart';
-import '../ui/app_states.dart';
+import '../ui/not_found_page.dart';
 import 'app_scaffold.dart';
 
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -150,17 +150,7 @@ GoRouter _buildRouter() {
       }
       return null;
     },
-    errorBuilder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('Page introuvable')),
-      body: AppEmptyState(
-        icon: Icons.link_off,
-        title: 'Page introuvable',
-        message: 'Cette page n’existe pas ou a été déplacée.',
-        actionLabel: 'Retour',
-        actionIcon: Icons.arrow_back,
-        onAction: () => context.canPop() ? context.pop() : context.go('/'),
-      ),
-    ),
+    errorBuilder: (context, state) => const NotFoundPage(),
     routes: [
       GoRoute(
         path: '/login',
