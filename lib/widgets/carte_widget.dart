@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../core/app_haptics.dart';
+import '../ui/app_button.dart';
 
 /// Clé fournie à la compilation :
 /// flutter run --dart-define=MAPTILER_KEY=votre_cle
@@ -49,6 +51,7 @@ class _CarteWidgetState extends State<CarteWidget> {
   bool get _satellite => widget.satellite ?? _satelliteInterne;
 
   void _basculer() {
+    AppHaptics.selectionClick();
     final valeur = !_satellite;
     if (widget.onSatelliteChanged != null) {
       widget.onSatelliteChanged!(valeur);
@@ -109,10 +112,17 @@ class _CarteWidgetState extends State<CarteWidget> {
           Positioned(
             top: 12,
             right: 12,
-            child: FloatingActionButton.small(
-              heroTag: null,
+            child: AppIconButton(
+              icon: _satellite ? Icons.map_outlined : Icons.satellite_alt,
+              tooltip: _satellite
+                  ? 'Passer en vue plan'
+                  : 'Passer en vue satellite',
+              elevated: true,
+              backgroundColor:
+                  Theme.of(context).colorScheme.surfaceContainerHigh
+                      .withValues(alpha: 0.94),
+              color: Theme.of(context).colorScheme.primary,
               onPressed: _basculer,
-              child: Icon(_satellite ? Icons.map : Icons.satellite_alt),
             ),
           ),
       ],

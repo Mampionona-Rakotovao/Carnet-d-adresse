@@ -1,34 +1,30 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 import 'app_spacing.dart';
 
 /// Thèmes Material 3 de l'application.
 ///
-/// Tout l'habillage visuel passe par ici : aucun écran ne doit définir ses
-/// propres couleurs ni ses propres rayons. Les deux modes sont générés à
-/// partir d'une seule graine, ce qui garantit que les teintes restent
-/// cohérentes entre le mode clair et le mode sombre.
+/// Le `ColorScheme` est construit explicitement à partir de la palette : les
+/// deux modes ne sont pas dérivés d'une graine, ce qui évite les teintes
+/// imprévues et garantit les contrastes documentés dans [AppColors].
 abstract final class AppTheme {
-  /// Teal profond : couleur associée à la localisation et à la confiance,
-  /// lisible sur fond clair comme sur fond sombre.
-  static const Color seed = Color(0xFF00696E);
-
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: brightness,
-    );
+    final isLight = brightness == Brightness.light;
+    final scheme = isLight ? _lightScheme : _darkScheme;
+    final palette = isLight ? AppPalette.light : AppPalette.dark;
 
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       brightness: brightness,
-      // Le fond reste neutre : les cartes ressortent par leur surface, pas par
-      // une teinte de fond, ce qui garde l'interface sobre.
-      scaffoldBackgroundColor: scheme.surface,
-      splashFactory: InkSparkle.splashFactory,
+      scaffoldBackgroundColor:
+          isLight ? AppColors.lightBackground : AppColors.darkBackground,
+      // Ripple classique : discret, contenu dans la forme arrondie.
+      splashFactory: InkRipple.splashFactory,
+      extensions: [palette],
     );
 
     final textTheme = _textTheme(base.textTheme, scheme);
@@ -37,36 +33,18 @@ abstract final class AppTheme {
       textTheme: textTheme,
       primaryTextTheme: textTheme,
       appBarTheme: _appBar(scheme),
-      cardTheme: _card(scheme),
+      cardTheme: _card(scheme, palette, isLight),
       dividerTheme: DividerThemeData(
         color: scheme.outlineVariant,
         thickness: 1,
         space: 1,
       ),
       inputDecorationTheme: _input(scheme),
-      filledButtonTheme: _filled(),
+      filledButtonTheme: _filled(scheme),
       outlinedButtonTheme: _outlined(scheme),
       textButtonTheme: _text(scheme),
-      iconButtonTheme: IconButtonThemeData(
-        style: ButtonStyle(
-          minimumSize: const WidgetStatePropertyAll(Size.square(48)),
-          shape: const WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
-          ),
-        ),
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        elevation: 3,
-        focusElevation: 3,
-        hoverElevation: 4,
-        highlightElevation: 6,
-        extendedTextStyle: textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
-      ),
+      iconButtonTheme: _iconButton(scheme),
+      floatingActionButtonTheme: _fab(scheme, palette, textTheme),
       navigationBarTheme: _navigationBar(scheme, textTheme),
       dialogTheme: _dialog(scheme, textTheme),
       snackBarTheme: _snackBar(scheme, textTheme),
@@ -75,7 +53,9 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         modalBackgroundColor: scheme.surfaceContainerLow,
         showDragHandle: true,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheetTopRadius),
+        shape: const RoundedRectangleBorder(
+          borderRadius: AppRadius.sheetTopRadius,
+        ),
       ),
       chipTheme: _chip(scheme),
       segmentedButtonTheme: _segmented(scheme),
@@ -85,12 +65,90 @@ abstract final class AppTheme {
         linearTrackColor: scheme.surfaceContainerHighest,
         circularTrackColor: scheme.surfaceContainerHighest,
       ),
-      // Les champs et boutons gardent une zone tactile confortable, y compris
-      // quand la police système est agrandie par l'utilisateur.
       materialTapTargetSize: MaterialTapTargetSize.padded,
       visualDensity: VisualDensity.standard,
     );
   }
+
+  /// Mode clair : fond bleu très pâle, surfaces blanches, texte navy.
+  static const ColorScheme _lightScheme = ColorScheme(
+    brightness: Brightness.light,
+    primary: AppColors.primary,
+    onPrimary: Color(0xFFFFFFFF),
+    primaryContainer: Color(0xFFDCEBFF),
+    onPrimaryContainer: Color(0xFF0B3A75),
+    secondary: AppColors.secondary,
+    onSecondary: Color(0xFF0B1220),
+    secondaryContainer: Color(0xFFEAF4FF),
+    onSecondaryContainer: Color(0xFF0B3A75),
+    tertiary: AppColors.accent,
+    onTertiary: AppColors.darkNavy,
+    tertiaryContainer: Color(0xFFD6FBF5),
+    onTertiaryContainer: Color(0xFF064E48),
+    error: AppColors.error,
+    onError: Color(0xFFFFFFFF),
+    errorContainer: Color(0xFFFEE2E2),
+    onErrorContainer: Color(0xFF7F1D1D),
+    surface: AppColors.lightSurface,
+    onSurface: AppColors.lightText,
+    surfaceDim: AppColors.lightBackground,
+    surfaceBright: AppColors.lightSurface,
+    surfaceContainerLowest: Color(0xFFFFFFFF),
+    surfaceContainerLow: AppColors.lightSurface,
+    surfaceContainer: AppColors.lightBackground,
+    surfaceContainerHigh: Color(0xFFFFFFFF),
+    surfaceContainerHighest: AppColors.lightSurfaceSecondary,
+    onSurfaceVariant: AppColors.lightTextSecondary,
+    outline: Color(0xFF94A3B8),
+    outlineVariant: AppColors.lightBorder,
+    shadow: AppColors.darkNavy,
+    scrim: Color(0xFF000000),
+    inverseSurface: AppColors.darkNavy,
+    onInverseSurface: AppColors.darkText,
+    inversePrimary: Color(0xFF90CAF9),
+    surfaceTint: Colors.transparent,
+  );
+
+  /// Mode sombre : fond nuit, surfaces bleu ardoise, texte très clair.
+  static const ColorScheme _darkScheme = ColorScheme(
+    brightness: Brightness.dark,
+    primary: AppColors.secondary,
+    onPrimary: AppColors.darkBackground,
+    primaryContainer: Color(0xFF123A63),
+    onPrimaryContainer: Color(0xFFD6E8FF),
+    secondary: Color(0xFF38BDF8),
+    onSecondary: AppColors.darkBackground,
+    secondaryContainer: Color(0xFF16324F),
+    onSecondaryContainer: Color(0xFFD6E8FF),
+    tertiary: AppColors.darkAccent,
+    onTertiary: AppColors.darkBackground,
+    tertiaryContainer: Color(0xFF0F3D38),
+    onTertiaryContainer: Color(0xFFA7F3EA),
+    // Variante éclaircie : le rouge #DC2626 reste utilisé pour les
+    // remplissages destructifs, mais pas comme texte sur fond sombre.
+    error: Color(0xFFEF4444),
+    onError: AppColors.darkBackground,
+    errorContainer: Color(0xFF4C1D1D),
+    onErrorContainer: Color(0xFFFECACA),
+    surface: AppColors.darkSurface,
+    onSurface: AppColors.darkText,
+    surfaceDim: AppColors.darkBackground,
+    surfaceBright: AppColors.darkSurfaceSecondary,
+    surfaceContainerLowest: AppColors.darkBackground,
+    surfaceContainerLow: AppColors.darkSurface,
+    surfaceContainer: AppColors.darkSurfaceSecondary,
+    surfaceContainerHigh: AppColors.darkSurfaceSecondary,
+    surfaceContainerHighest: AppColors.darkSurfaceSecondary,
+    onSurfaceVariant: AppColors.darkTextSecondary,
+    outline: Color(0xFF64748B),
+    outlineVariant: AppColors.darkBorder,
+    shadow: Color(0xFF000000),
+    scrim: Color(0xFF000000),
+    inverseSurface: AppColors.darkText,
+    onInverseSurface: AppColors.darkNavy,
+    inversePrimary: AppColors.primary,
+    surfaceTint: Colors.transparent,
+  );
 
   /// Hiérarchie typographique. Les corps de texte ne descendent jamais en
   /// dessous de 14 px pour rester lisibles sur un petit écran Android.
@@ -141,7 +199,8 @@ abstract final class AppTheme {
       ),
       bodyLarge: base.bodyLarge?.copyWith(fontSize: 16, height: 1.45),
       bodyMedium: base.bodyMedium?.copyWith(fontSize: 15, height: 1.45),
-      bodySmall: s(14, FontWeight.w400, height: 1.4, color: scheme.onSurfaceVariant),
+      bodySmall: s(14, FontWeight.w400,
+          height: 1.4, color: scheme.onSurfaceVariant),
       labelLarge: base.labelLarge?.copyWith(
         fontSize: 15,
         fontWeight: FontWeight.w600,
@@ -151,7 +210,8 @@ abstract final class AppTheme {
         fontWeight: FontWeight.w600,
         color: scheme.onSurfaceVariant,
       ),
-      labelSmall: s(12, FontWeight.w600, spacing: 0.4, color: scheme.onSurfaceVariant),
+      labelSmall:
+          s(12, FontWeight.w600, spacing: 0.4, color: scheme.onSurfaceVariant),
     );
   }
 
@@ -166,13 +226,17 @@ abstract final class AppTheme {
         toolbarHeight: 64,
       );
 
-  /// Cartes plates : pas d'ombre, une bordure discrète et une surface légèrement
-  /// détachée du fond suffisent à délimiter le contenu.
-  static CardThemeData _card(ColorScheme scheme) => CardThemeData(
+  /// Cartes légèrement surélevées en mode clair, plates en mode sombre.
+  static CardThemeData _card(
+    ColorScheme scheme,
+    AppPalette palette,
+    bool isLight,
+  ) =>
+      CardThemeData(
         color: scheme.surfaceContainerLow,
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        elevation: 0,
+        shadowColor: palette.shadow,
+        elevation: isLight ? 1 : 0,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
@@ -219,39 +283,108 @@ abstract final class AppTheme {
         ),
       );
 
-  static FilledButtonThemeData _filled() => FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          // Minimum fini : `Size.fromHeight(52)` donnerait une largeur infinie
-          // et ferait planter tout bouton posé dans un `Row` (voir panneau de
-          // partage). La pleine largeur vient des contraintes du parent
-          // (stretch, ListView), pas d'une largeur minimum infinie.
-          minimumSize: const Size(48, 52),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  static ButtonStyle _baseButtonStyle(
+    ColorScheme scheme,
+    Color foreground,
+    Color background, {
+    BorderSide? side,
+  }) =>
+      ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         ),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return scheme.onSurface.withValues(alpha: 0.10);
+          }
+          return background;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return scheme.onSurface.withValues(alpha: 0.38);
+          }
+          return foreground;
+        }),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed) ||
+              states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return foreground.withValues(alpha: 0.10);
+          }
+          return Colors.transparent;
+        }),
+        side: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.focused)) {
+            return BorderSide(color: scheme.primary, width: 2);
+          }
+          return side;
+        }),
+      );
+
+  static FilledButtonThemeData _filled(ColorScheme scheme) =>
+      FilledButtonThemeData(
+        style: _baseButtonStyle(scheme, scheme.onPrimary, scheme.primary),
       );
 
   static OutlinedButtonThemeData _outlined(ColorScheme scheme) =>
       OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(48, 52),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          side: BorderSide(color: scheme.outline),
-          foregroundColor: scheme.primary,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        style: _baseButtonStyle(
+          scheme,
+          scheme.primary,
+          Colors.transparent,
+          side: BorderSide(color: scheme.outlineVariant),
         ),
       );
 
   static TextButtonThemeData _text(ColorScheme scheme) => TextButtonThemeData(
-        style: TextButton.styleFrom(
-          minimumSize: const Size(48, 48),
-          foregroundColor: scheme.primary,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        style: _baseButtonStyle(
+          scheme,
+          scheme.primary,
+          Colors.transparent,
         ),
+      );
+
+  static IconButtonThemeData _iconButton(ColorScheme scheme) =>
+      IconButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size.square(48)),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          shape: const WidgetStatePropertyAll(CircleBorder()),
+          foregroundColor: WidgetStatePropertyAll(scheme.onSurfaceVariant),
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed) ||
+                states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.focused)) {
+              return scheme.primary.withValues(alpha: 0.10);
+            }
+            return Colors.transparent;
+          }),
+        ),
+      );
+
+  static FloatingActionButtonThemeData _fab(
+    ColorScheme scheme,
+    AppPalette palette,
+    TextTheme textTheme,
+  ) =>
+      FloatingActionButtonThemeData(
+        backgroundColor: scheme.surfaceContainerHigh.withValues(alpha: 0.94),
+        foregroundColor: scheme.primary,
+        elevation: 2,
+        focusElevation: 3,
+        hoverElevation: 3,
+        highlightElevation: 1,
+        extendedTextStyle: textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+        shape: const CircleBorder(),
       );
 
   static NavigationBarThemeData _navigationBar(
@@ -276,8 +409,9 @@ abstract final class AppTheme {
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => text.labelMedium?.copyWith(
             fontSize: 12,
-            fontWeight:
-                states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
             color: states.contains(WidgetState.selected)
                 ? scheme.onSurface
                 : scheme.onSurfaceVariant,
@@ -291,7 +425,8 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.dialogRadius),
         titleTextStyle: text.titleLarge,
-        contentTextStyle: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        contentTextStyle:
+            text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         actionsPadding: const EdgeInsets.fromLTRB(
           AppSpacing.md,
           0,
@@ -306,7 +441,8 @@ abstract final class AppTheme {
       SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: scheme.inverseSurface,
-        contentTextStyle: text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+        contentTextStyle:
+            text.bodyMedium?.copyWith(color: scheme.onInverseSurface),
         actionTextColor: scheme.inversePrimary,
         elevation: 3,
         insetPadding: const EdgeInsets.all(AppSpacing.md),
@@ -339,12 +475,24 @@ abstract final class AppTheme {
       SegmentedButtonThemeData(
         style: ButtonStyle(
           minimumSize: const WidgetStatePropertyAll(Size.fromHeight(48)),
-          textStyle: WidgetStatePropertyAll(
+          textStyle: const WidgetStatePropertyAll(
             TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           side: WidgetStatePropertyAll(
             BorderSide(color: scheme.outlineVariant),
           ),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.primaryContainer;
+            }
+            return Colors.transparent;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return scheme.onPrimaryContainer;
+            }
+            return scheme.onSurface;
+          }),
         ),
       );
 
@@ -356,7 +504,8 @@ abstract final class AppTheme {
         ),
         minVerticalPadding: AppSpacing.sm,
         titleTextStyle: text.titleSmall,
-        subtitleTextStyle: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        subtitleTextStyle:
+            text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
         iconColor: scheme.onSurfaceVariant,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.fieldRadius),
       );

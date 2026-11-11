@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import '../../../core/app_haptics.dart';
 import '../../../core/navigation_launcher.dart';
 import '../../../core/route_service.dart' hide RouteStep;
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../models/landmark.dart';
 import '../../../ui/app_feedback.dart';
+import '../../../ui/pressable_scale.dart';
 import '../../../widgets/carte_widget.dart';
+import '../../../widgets/map_marker.dart';
 import '../../../widgets/map_type_buttons.dart';
 import '../../navigation/navigation_screen.dart';
 
@@ -85,6 +90,7 @@ class _TrajetBoutonsState extends State<TrajetBoutons> {
 
     // 2e appui : on masque l'itinéraire.
     if (_route != null) {
+      AppHaptics.lightImpact();
       setState(() => _route = null);
       widget.onRouteChanged?.call(null);
       return;
@@ -105,6 +111,7 @@ class _TrajetBoutonsState extends State<TrajetBoutons> {
         );
         return;
       }
+      AppHaptics.lightImpact();
       setState(() => _route = route);
       widget.onRouteChanged?.call(route);
     } catch (e) {
@@ -115,6 +122,7 @@ class _TrajetBoutonsState extends State<TrajetBoutons> {
   }
 
   Future<void> _ouvrirGuidage() async {
+    AppHaptics.lightImpact();
     setState(() => _guidageOuvert = true);
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -129,6 +137,7 @@ class _TrajetBoutonsState extends State<TrajetBoutons> {
   }
 
   Future<void> _naviguerExterne() async {
+    AppHaptics.lightImpact();
     setState(() => _externeEnCours = true);
     final ok = await ouvrirNavigation(widget.destination);
     if (!mounted) return;
@@ -226,48 +235,73 @@ class _TrajetBouton extends StatelessWidget {
 
     final radius = BorderRadius.circular(AppRadius.sm);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        color: fond,
-        borderRadius: radius,
-        border: Border.all(color: bordure, width: active ? 1.5 : 1),
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: loading ? null : onPressed,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Hauteur fixe : le bouton ne change pas de taille au chargement.
-                SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: loading
-                      ? Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: texte,
-                          ),
-                        )
-                      : Icon(icon, size: 22, color: texte),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: texte,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+    return Semantics(
+      button: true,
+      enabled: !loading,
+      label: label,
+      child: PressableScale(
+        enabled: !loading,
+        child: AnimatedContainer(
+          duration: AppMotion.duree(context, AppMotion.normal),
+          curve: AppMotion.etat,
+          decoration: BoxDecoration(
+            color: fond,
+            borderRadius: radius,
+            border: Border.all(color: bordure, width: active ? 1.5 : 1),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: scheme.shadow.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: radius,
+              onTap: loading ? null : onPressed,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Hauteur fixe : le bouton ne change pas de taille au
+                      // chargement.
+                      SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: loading
+                            ? Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: texte,
+                                ),
+                              )
+                            : Icon(icon, size: 22, color: texte),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: texte,
+                              fontWeight:
+                                  active ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -286,7 +320,7 @@ class TrajetSection extends StatefulWidget {
     this.landmarks = const [],
     this.onLandmarkTap,
     this.markerIcon = Icons.location_on,
-    this.markerColor = Colors.red,
+    this.markerColor = AppColors.error,
     this.hauteurCarte = 220,
   });
 
@@ -305,6 +339,7 @@ class TrajetSection extends StatefulWidget {
 class _TrajetSectionState extends State<TrajetSection> {
   bool _satellite = true;
   RouteResult? _route;
+  String? _selectedLandmarkId;
 
   @override
   Widget build(BuildContext context) {
@@ -321,16 +356,24 @@ class _TrajetSectionState extends State<TrajetSection> {
                   centre: widget.destination,
                   zoom: 16,
                   satellite: _satellite,
-                  onSatelliteChanged: (value) =>
-                      setState(() => _satellite = value),
+                  onSatelliteChanged: (value) {
+                    AppHaptics.selectionClick();
+                    setState(() => _satellite = value);
+                  },
                   afficherBoutonBascule: false,
                   polylines: _route == null
                       ? const []
                       : [
+                          // Liseré blanc : la ligne reste lisible sur satellite.
+                          Polyline(
+                            points: _route!.points,
+                            strokeWidth: 9,
+                            color: Colors.white,
+                          ),
                           Polyline(
                             points: _route!.points,
                             strokeWidth: 6,
-                            color: Colors.blue,
+                            color: AppColors.primary,
                           ),
                         ],
                   marqueurs: [
@@ -338,10 +381,10 @@ class _TrajetSectionState extends State<TrajetSection> {
                       point: widget.destination,
                       width: 44,
                       height: 44,
-                      child: Icon(
-                        widget.markerIcon,
+                      child: AppMapMarker(
+                        icon: widget.markerIcon,
                         color: widget.markerColor,
-                        size: 38,
+                        size: 32,
                       ),
                     ),
                     ...widget.landmarks
@@ -349,16 +392,30 @@ class _TrajetSectionState extends State<TrajetSection> {
                         .map(
                           (l) => Marker(
                             point: LatLng(l.latitude!, l.longitude!),
-                            width: 36,
-                            height: 36,
-                            child: GestureDetector(
-                              onTap: widget.onLandmarkTap == null
-                                  ? null
-                                  : () => widget.onLandmarkTap!(l),
-                              child: const Icon(
-                                Icons.place,
-                                color: Colors.blue,
-                                size: 30,
+                            width: 40,
+                            height: 40,
+                            child: AnimatedScale(
+                              scale: _selectedLandmarkId == l.id ? 1.15 : 1,
+                              duration: AppMotion.duree(
+                                context,
+                                AppMotion.normal,
+                              ),
+                              curve: AppMotion.etat,
+                              child: GestureDetector(
+                                onTap: widget.onLandmarkTap == null
+                                    ? null
+                                    : () {
+                                        AppHaptics.selectionClick();
+                                        setState(
+                                          () => _selectedLandmarkId = l.id,
+                                        );
+                                        widget.onLandmarkTap!(l);
+                                      },
+                                child: AppMapMarker(
+                                  icon: Icons.place,
+                                  color: AppColors.primary,
+                                  size: 26,
+                                ),
                               ),
                             ),
                           ),

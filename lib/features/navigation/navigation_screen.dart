@@ -5,7 +5,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/navigation_launcher.dart';
 import '../../core/route_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_motion.dart';
+import '../../ui/app_button.dart';
 import '../../widgets/carte_widget.dart';
+import '../../widgets/map_marker.dart';
 
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({super.key, required this.destination, this.nom});
@@ -17,10 +21,19 @@ class NavigationScreen extends StatefulWidget {
   State<NavigationScreen> createState() => _NavigationScreenState();
 }
 
-class _NavigationScreenState extends State<NavigationScreen> {
+class _NavigationScreenState extends State<NavigationScreen>
+    with SingleTickerProviderStateMixin {
   static const _dist = Distance();
 
   final MapController _map = MapController();
+  late final AnimationController _camera = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 400),
+  );
+  LatLng? _cameraFrom;
+  LatLng? _cameraTo;
+  double _cameraFromZoom = 17;
+  double _cameraToZoom = 17;
   StreamSubscription<Position>? _sub;
 
   RouteResult? _route;
@@ -35,14 +48,46 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _camera.addListener(_onCameraTick);
     _demarrer();
   }
 
   @override
   void dispose() {
     _sub?.cancel();
+    _camera.dispose();
     _map.dispose();
     super.dispose();
+  }
+
+  void _onCameraTick() {
+    final from = _cameraFrom;
+    final to = _cameraTo;
+    if (from == null || to == null) return;
+    final t = Curves.easeOutCubic.transform(_camera.value);
+    final point = LatLng(
+      from.latitude + (to.latitude - from.latitude) * t,
+      from.longitude + (to.longitude - from.longitude) * t,
+    );
+    final zoom = _cameraFromZoom + (_cameraToZoom - _cameraFromZoom) * t;
+    try {
+      _map.move(point, zoom);
+    } catch (_) {}
+  }
+
+  /// Déplacement animé de la carte, jamais un saut brutal.
+  void _animateCameraTo(LatLng point, double zoom) {
+    if (AppMotion.reduit(context)) {
+      try {
+        _map.move(point, zoom);
+      } catch (_) {}
+      return;
+    }
+    _cameraFrom = _map.camera.center;
+    _cameraTo = point;
+    _cameraFromZoom = _map.camera.zoom;
+    _cameraToZoom = zoom;
+    _camera.forward(from: 0);
   }
 
   Future<void> _demarrer() async {
@@ -176,10 +221,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
               children: [
                 Text(_erreur!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
-                FilledButton.icon(
+                AppButton.primary(
                   onPressed: () => ouvrirNavigation(widget.destination),
-                  icon: const Icon(Icons.map),
-                  label: const Text('Ouvrir dans Google Maps'),
+                  icon: Icons.map,
+                  label: 'Ouvrir dans Google Maps',
                 ),
               ],
             ),
@@ -206,27 +251,42 @@ class _NavigationScreenState extends State<NavigationScreen> {
             controller: _map,
             polylines: [
               Polyline(
-                  points: route.points, strokeWidth: 6, color: Colors.blue),
+                points: route.points,
+                strokeWidth: 9,
+                color: Colors.white,
+              ),
+              Polyline(
+                points: route.points,
+                strokeWidth: 6,
+                color: AppColors.primary,
+              ),
             ],
             marqueurs: [
               Marker(
                 point: widget.destination,
                 width: 40,
                 height: 40,
-                child:
-                    const Icon(Icons.location_pin, color: Colors.red, size: 40),
+                child: const AppMapMarker(
+                  icon: Icons.location_pin,
+                  color: AppColors.error,
+                  size: 32,
+                ),
               ),
               Marker(
                 point: _pos!,
-                width: 36,
-                height: 36,
-                child:
-                    const Icon(Icons.navigation, color: Colors.blue, size: 32),
+                width: 40,
+                height: 40,
+                child: const AppMapMarker(
+                  icon: Icons.navigation,
+                  color: AppColors.primary,
+                  size: 26,
+                ),
               ),
             ],
             onMapEvent: (event) {
-              if (event.source == MapEventSource.onDrag && _suivre) {
-                setState(() => _suivre = false);
+              if (event.source == MapEventSource.onDrag) {
+                _camera.stop();
+                if (_suivre) setState(() => _suivre = false);
               }
             },
           ),
@@ -246,14 +306,25 @@ class _NavigationScreenState extends State<NavigationScreen> {
                           size: 32, color: scheme.onPrimaryContainer),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          _arrived
-                              ? 'Vous êtes arrivé'
-                              : '${step.instruction}\ndans ${formatDistance(versManoeuvre)}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.onPrimaryContainer,
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.duree(
+                            context,
+                            const Duration(milliseconds: 150),
+                          ),
+                          switchInCurve: AppMotion.entree,
+                          switchOutCurve: AppMotion.sortie,
+                          child: Text(
+                            _arrived
+                                ? 'Vous êtes arrivé'
+                                : '${step.instruction}\ndans ${formatDistance(versManoeuvre)}',
+                            key: ValueKey(
+                              _arrived ? 'arrive' : '${_next}_${step.instruction}',
+                            ),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onPrimaryContainer,
+                            ),
                           ),
                         ),
                       ),
@@ -284,9 +355,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
                               fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      FilledButton.tonal(
+                      AppButton.tonal(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(_arrived ? 'Terminer' : 'Quitter'),
+                        label: _arrived ? 'Terminer' : 'Quitter',
+                        compact: true,
                       ),
                     ],
                   ),
@@ -300,13 +372,17 @@ class _NavigationScreenState extends State<NavigationScreen> {
           ? null
           : Padding(
               padding: const EdgeInsets.only(bottom: 80),
-              child: FloatingActionButton.small(
-                heroTag: null,
+              child: AppIconButton(
+                icon: Icons.my_location,
+                tooltip: 'Recentrer sur ma position',
+                elevated: true,
+                backgroundColor:
+                    scheme.surfaceContainerHigh.withValues(alpha: 0.94),
+                color: scheme.primary,
                 onPressed: () {
                   setState(() => _suivre = true);
-                  _map.move(_pos!, 17);
+                  _animateCameraTo(_pos!, 17);
                 },
-                child: const Icon(Icons.my_location),
               ),
             ),
     );

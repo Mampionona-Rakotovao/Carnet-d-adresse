@@ -1,6 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import '../core/theme/app_colors.dart';
 import '../core/theme/app_spacing.dart';
 
 AudioPlayer? _notificationPlayer;
@@ -115,12 +116,12 @@ extension AppMessageKindX on AppMessageKind {
       };
 
   Color color(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final palette = AppPalette.of(context);
     return switch (this) {
-      AppMessageKind.info => scheme.onInverseSurface,
-      AppMessageKind.success => const Color(0xFF7BD88F),
-      AppMessageKind.error => const Color(0xFFFFB4AB),
-      AppMessageKind.warning => const Color(0xFFFFCF8B),
+      AppMessageKind.info => palette.snackInfo,
+      AppMessageKind.success => palette.snackSuccess,
+      AppMessageKind.error => palette.snackError,
+      AppMessageKind.warning => palette.snackWarning,
     };
   }
 }
@@ -137,7 +138,7 @@ abstract final class AppSnack {
     required AppMessageKind kind,
     String? actionLabel,
     VoidCallback? onAction,
-    Duration duration = const Duration(seconds: 4),
+    Duration? duration,
     bool sound = false,
   }) =>
       _showOn(
@@ -156,7 +157,7 @@ abstract final class AppSnack {
     required AppMessageKind kind,
     String? actionLabel,
     VoidCallback? onAction,
-    Duration duration = const Duration(seconds: 4),
+    Duration? duration,
     bool sound = false,
   }) {
     if (messenger == null) return;
@@ -167,7 +168,7 @@ abstract final class AppSnack {
       ..clearSnackBars()
       ..showSnackBar(
         SnackBar(
-          duration: duration,
+          duration: duration ?? _durationFor(message, kind),
           content: Row(
             children: [
               Icon(kind.icon, color: kind.color(messenger.context), size: 20),
@@ -180,6 +181,20 @@ abstract final class AppSnack {
               : null,
         ),
       );
+  }
+
+  /// Durée proportionnée à la longueur du message : les phrases courtes ne
+  /// bloquent pas l'écran, les messages longs restent lisibles.
+  static Duration _durationFor(String message, AppMessageKind kind) {
+    final extraSeconds = message.length > 90
+        ? 3
+        : message.length > 50
+            ? 2
+            : message.length > 25
+                ? 1
+                : 0;
+    final base = kind == AppMessageKind.error ? 4 : 3;
+    return Duration(seconds: base + extraSeconds);
   }
 
   static void info(BuildContext context, String message) =>

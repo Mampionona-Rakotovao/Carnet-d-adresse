@@ -20,6 +20,7 @@ import '../features/share/redeem_share_screen.dart';
 import '../features/share/shared_with_me_screen.dart';
 import '../features/share/shared_link_screen.dart';
 import '../models/address.dart';
+import '../ui/app_page.dart';
 import '../ui/not_found_page.dart';
 import 'app_scaffold.dart';
 
@@ -154,22 +155,34 @@ GoRouter _buildRouter() {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => const AuthScreen(),
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: const AuthScreen(),
+        ),
       ),
       GoRoute(
         path: '/reset-code',
-        builder: (context, state) => ResetCodeScreen(
-          email: state.extra as String? ?? '',
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: ResetCodeScreen(
+            email: state.extra as String? ?? '',
+          ),
         ),
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (context, state) => const ResetPasswordScreen(),
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: const ResetPasswordScreen(),
+        ),
       ),
       GoRoute(
         path: '/confirm-email',
-        builder: (context, state) => ConfirmEmailScreen(
-          email: state.extra as String? ?? '',
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: ConfirmEmailScreen(
+            email: state.extra as String? ?? '',
+          ),
         ),
       ),
       ShellRoute(
@@ -179,71 +192,110 @@ GoRouter _buildRouter() {
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) => appPage(
+              key: state.pageKey,
+              child: const HomeScreen(),
+            ),
           ),
           GoRoute(
             path: '/search',
-            builder: (context, state) => const SearchScreen(),
+            pageBuilder: (context, state) => appPage(
+              key: state.pageKey,
+              child: const SearchScreen(),
+            ),
           ),
           GoRoute(
             path: '/favorites',
-            builder: (context, state) => const FavoritesScreen(),
+            pageBuilder: (context, state) => appPage(
+              key: state.pageKey,
+              child: const FavoritesScreen(),
+            ),
           ),
           GoRoute(
             path: '/share/open',
-            builder: (context, state) => const RedeemShareScreen(),
+            pageBuilder: (context, state) => appPage(
+              key: state.pageKey,
+              child: const RedeemShareScreen(),
+            ),
           ),
         ],
       ),
       // Lien partagé : https://mampionona-rakotovao.github.io/a/<token>
       GoRoute(
         path: '/a/:token',
-        builder: (context, state) => SharedLinkScreen(
-          token: state.pathParameters['token']!,
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: SharedLinkScreen(
+            token: state.pathParameters['token']!,
+          ),
         ),
       ),
       // Adresses reçues par lien, encore valides.
       GoRoute(
         path: '/shared',
-        builder: (context, state) => const SharedWithMeScreen(),
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: const SharedWithMeScreen(),
+        ),
       ),
       GoRoute(
         path: '/aide',
-        builder: (context, state) => const HelpCenterScreen(),
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: const HelpCenterScreen(),
+        ),
       ),
       GoRoute(
         path: '/aide/categorie/:categorie',
-        builder: (context, state) => HelpCategoryScreen(
-          categoryName: state.pathParameters['categorie']!,
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: HelpCategoryScreen(
+            categoryName: state.pathParameters['categorie']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/aide/:id',
-        builder: (context, state) => HelpArticleScreen(
-          articleId: state.pathParameters['id']!,
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: HelpArticleScreen(
+            articleId: state.pathParameters['id']!,
+          ),
         ),
       ),
       GoRoute(
         path: '/address/create',
-        builder: (context, state) => const AddressFormScreen(),
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: const AddressFormScreen(),
+        ),
       ),
       GoRoute(
         path: '/address/:id/edit',
-        builder: (context, state) => AddressFormScreen(
-          existingAddress: state.extra as Address?,
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: AddressFormScreen(
+            existingAddress: state.extra as Address?,
+          ),
         ),
       ),
       GoRoute(
         path: '/address/:id/steps',
-        builder: (context, state) => StepWizardScreen(
-          addressId: state.pathParameters['id']!,
-          addressName: state.extra as String? ?? '',
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: StepWizardScreen(
+            addressId: state.pathParameters['id']!,
+            addressName: state.extra as String? ?? '',
+          ),
         ),
       ),
       GoRoute(
         path: '/address/:id',
-        builder: (context, state) => AddressDetailScreen(
-          addressId: state.pathParameters['id']!,
+        pageBuilder: (context, state) => appPage(
+          key: state.pageKey,
+          child: AddressDetailScreen(
+            addressId: state.pathParameters['id']!,
+          ),
         ),
       ),
     ],

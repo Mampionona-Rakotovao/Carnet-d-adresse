@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_spacing.dart';
+import 'app_button.dart';
 import 'app_feedback.dart';
 
 /// Indicateur de chargement centré, avec une zone de taille stable pour que
@@ -217,6 +218,10 @@ class AppStateAction extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) =>
-      FilledButton.icon(onPressed: onPressed, icon: Icon(icon), label: Text(label));
+  Widget build(BuildContext context) => AppButton.primary(
+        label: label,
+        icon: icon,
+        expanded: true,
+        onPressed: onPressed,
+      );
 }
