@@ -67,9 +67,9 @@ class _Geo {
   double get protrusion => lift + ringOuter + 1;
 
   static const _Geo standard =
-      _Geo(bubbleRadius: 28, ringWidth: 3, lift: 14, notchGap: 4);
-  static const _Geo compact =
       _Geo(bubbleRadius: 24, ringWidth: 2.5, lift: 12, notchGap: 3);
+  static const _Geo compact =
+      _Geo(bubbleRadius: 20, ringWidth: 2, lift: 10, notchGap: 2);
 }
 
 /// Barre de navigation inférieure « bulle flottante ».
@@ -114,10 +114,10 @@ class AppBottomNav extends StatefulWidget {
   final int? previousIndex;
 
   /// Hauteur de la barre proprement dite (sans dépassement ni marge).
-  static const double barHeight = 68;
+  static const double barHeight = 50;
 
   /// Marge entre la barre et le bord bas de l'écran (hors zone système).
-  static const double margeBas = AppSpacing.sm; // 12
+  static const double margeBas = 8; // 12
 
   /// Hauteur totale occupée par la barre : dépassement de la bulle + barre +
   /// marge basse + zone de sécurité système. À utiliser pour le padding
@@ -428,7 +428,7 @@ class _AppBottomNavState extends State<AppBottomNav>
     final scheme = theme.colorScheme;
     final cible = _vers.round();
     final source = _depuis.round();
-    final tailleIcone = geo.bubbleRadius == 28 ? 26.0 : 22.0;
+    final tailleIcone = geo.bubbleRadius == 24 ? 22.0 : 20.0;
 
     return SizedBox(
       width: 2 * geo.hitRadius,
