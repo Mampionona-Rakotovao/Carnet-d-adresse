@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_feedback.dart';
 
 /// Écran affiché après que l'utilisateur a cliqué le lien de réinitialisation
@@ -57,10 +58,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Nouveau mot de passe')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+      body: AppBackground(
+        style: AppBackgroundStyle.hero,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
@@ -143,6 +147,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

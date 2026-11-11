@@ -4,6 +4,7 @@ import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
@@ -83,6 +84,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Favoris')),
       body: RefreshIndicator(
         onRefresh: _refresh,
@@ -90,24 +92,35 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           future: _favoritesFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const AppLoading();
+              return const AppBackground(
+                style: AppBackgroundStyle.releve,
+                child: AppLoading(),
+              );
             }
             if (snapshot.hasError) {
-              return AppErrorState(
-                error: snapshot.error,
-                onRetry: _refresh,
+              return AppBackground(
+                style: AppBackgroundStyle.releve,
+                child: AppErrorState(
+                  error: snapshot.error,
+                  onRetry: _refresh,
+                ),
               );
             }
             final addresses = snapshot.data ?? [];
             if (addresses.isEmpty) {
-              return const AppEmptyState(
-                icon: Icons.star_border,
-                title: 'Aucun favori pour le moment',
-                message:
-                    'Ajoutez des adresses à vos favoris pour les retrouver ici.',
+              return const AppBackground(
+                style: AppBackgroundStyle.vide,
+                child: AppEmptyState(
+                  icon: Icons.star_border,
+                  title: 'Aucun favori pour le moment',
+                  message:
+                      'Ajoutez des adresses à vos favoris pour les retrouver ici.',
+                ),
               );
             }
-            return ListView.builder(
+            return AppBackground(
+              style: AppBackgroundStyle.releve,
+              child: ListView.builder(
               // La barre flottante est posée par le shell au-dessus du
               // contenu : la liste réserve sa hauteur + une marge.
               padding: AppSpacing.list.copyWith(
@@ -153,6 +166,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   ),
                 );
               },
+            ),
             );
           },
         ),

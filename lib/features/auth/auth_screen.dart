@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_feedback.dart';
 import 'widgets/google_sign_in_button.dart';
 
@@ -144,9 +145,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        style: AppBackgroundStyle.hero,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
@@ -297,6 +301,7 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

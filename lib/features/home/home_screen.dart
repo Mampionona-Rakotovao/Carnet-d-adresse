@@ -5,6 +5,7 @@ import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../models/address.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_states.dart';
 import '../../ui/section.dart';
@@ -206,16 +207,17 @@ class _HomeScreenState extends State<HomeScreen> {
             WidgetsBinding.instance.addPostFrameCallback((_) async {
               await supabase.auth.signOut();
             });
-            return _shell(const AppLoading());
+            return _shell(AppBackgroundStyle.releve, const AppLoading());
           }
           return _shell(
+            AppBackgroundStyle.releve,
             AppErrorState(
                 error: snapshot.error, onRetry: () => setState(() {})),
           );
         }
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
-          return _shell(const AppLoading());
+          return _shell(AppBackgroundStyle.releve, const AppLoading());
         }
 
         final addresses = (snapshot.data ?? [])
@@ -223,8 +225,10 @@ class _HomeScreenState extends State<HomeScreen> {
             .map((row) => Address.fromJson(row))
             .toList();
 
+        final vide = addresses.isEmpty;
         return _shell(
-          addresses.isEmpty
+          vide ? AppBackgroundStyle.vide : AppBackgroundStyle.releve,
+          vide
               ? AppEmptyState(
                   icon: Icons.map_outlined,
                   title: 'Aucune adresse enregistrée',
@@ -303,9 +307,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _shell(Widget body) => Scaffold(
+  Widget _shell(AppBackgroundStyle style, Widget body) => Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: _appBar(),
-        body: body,
+        body: AppBackground(style: style, child: body),
       );
 }
 

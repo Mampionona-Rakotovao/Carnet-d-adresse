@@ -7,6 +7,8 @@ import '../../core/theme/app_spacing.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../../models/shared_address.dart';
+import '../../ui/app_background.dart';
+import '../../ui/app_states.dart';
 
 /// Adresses reçues par lien et encore valides. Rien n'est copié :
 /// la liste est recalculée côté serveur à chaque ouverture.
@@ -96,7 +98,11 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final style = (!_loading && _error == null && _items.isEmpty)
+        ? AppBackgroundStyle.vide
+        : AppBackgroundStyle.calme;
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Partagées avec moi'),
         leading: IconButton(
@@ -116,48 +122,31 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: AppSpacing.form,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: AppSpacing.sm),
-                        FilledButton(
-                          onPressed: _load,
-                          child: const Text('Réessayer'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: _items.isEmpty
-                      ? ListView(
-                          children: const [
-                            SizedBox(height: 120),
-                            Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Text(
-                                  "Aucune adresse partagée avec toi pour le moment.\n"
-                                  "Les adresses reçues par lien apparaissent ici "
-                                  "tant que le lien est valide.",
-                                  textAlign: TextAlign.center,
-                                ),
+      body: AppBackground(
+        style: style,
+        child: _loading
+            ? const AppLoading()
+            : _error != null
+                ? AppErrorState(error: _error, onRetry: _load)
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: _items.isEmpty
+                        ? ListView(
+                            children: const [
+                              SizedBox(height: 120),
+                              AppEmptyState(
+                                icon: Icons.share_outlined,
+                                title: 'Aucune adresse partagée',
+                                message:
+                                    "Les adresses reçues par lien apparaissent ici "
+                                    "tant que le lien est valide.",
                               ),
-                            ),
-                          ],
-                        )
-                      : ListView.builder(
-                          padding: AppSpacing.form,
-                          itemCount: _items.length,
-                          itemBuilder: (context, i) {
+                            ],
+                          )
+                        : ListView.builder(
+                            padding: AppSpacing.form,
+                            itemCount: _items.length,
+                            itemBuilder: (context, i) {
                             final item = _items[i];
                             final token = item.token;
                             final expanded = _expanded.contains(token);
@@ -323,7 +312,8 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
                             );
                           },
                         ),
-                ),
+                  ),
+      ),
     );
   }
 }

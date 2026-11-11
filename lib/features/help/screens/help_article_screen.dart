@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../../ui/app_background.dart';
 import '../../../ui/app_feedback.dart';
 import '../../../ui/app_states.dart';
 import '../../../ui/section.dart';
@@ -92,14 +93,18 @@ class _HelpArticleScreenState extends State<HelpArticleScreen> {
 
     if (article == null) {
       return Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: AppBar(title: const Text('Aide')),
-        body: AppEmptyState(
-          icon: Icons.help_outline,
-          title: 'Article introuvable',
-          message: 'Cet article d’aide n’existe pas ou a été renommé.',
-          actionLabel: 'Retour au centre d’aide',
-          actionIcon: Icons.arrow_back,
-          onAction: () => context.go('/aide'),
+        body: AppBackground(
+          style: AppBackgroundStyle.vide,
+          child: AppEmptyState(
+            icon: Icons.help_outline,
+            title: 'Article introuvable',
+            message: 'Cet article d’aide n’existe pas ou a été renommé.',
+            actionLabel: 'Retour au centre d’aide',
+            actionIcon: Icons.arrow_back,
+            onAction: () => context.go('/aide'),
+          ),
         ),
       );
     }
@@ -109,10 +114,13 @@ class _HelpArticleScreenState extends State<HelpArticleScreen> {
     final related = helpArticlesByIds(article.articlesLies);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Aide')),
-      body: ListView(
-        padding: AppSpacing.list,
-        children: [
+      body: AppBackground(
+        style: AppBackgroundStyle.calme,
+        child: ListView(
+          padding: AppSpacing.list,
+          children: [
           Text(
             article.categorie.label.toUpperCase(),
             style: theme.textTheme.labelSmall?.copyWith(
@@ -280,6 +288,7 @@ class _HelpArticleScreenState extends State<HelpArticleScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

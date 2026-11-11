@@ -4,6 +4,7 @@ import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
@@ -159,11 +160,17 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final style = (!_loading && _searchedOnce && _error == null && _results.isEmpty)
+        ? AppBackgroundStyle.vide
+        : AppBackgroundStyle.releve;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Rechercher')),
-      body: Column(
-        children: [
+      body: AppBackground(
+        style: style,
+        child: Column(
+          children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.md,
@@ -232,6 +239,7 @@ class _SearchScreenState extends State<SearchScreen> {
             child: _buildResults(theme, scheme),
           ),
         ],
+      ),
       ),
     );
   }

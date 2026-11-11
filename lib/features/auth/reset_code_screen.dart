@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_feedback.dart';
 
 /// Étape 2 de la réinitialisation : l'utilisateur saisit le code à 6 chiffres
@@ -113,10 +114,13 @@ class _ResetCodeScreenState extends State<ResetCodeScreen> {
     final canResend = !_resending && _cooldown == 0;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Mot de passe oublié')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+      body: AppBackground(
+        style: AppBackgroundStyle.hero,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
@@ -199,6 +203,7 @@ class _ResetCodeScreenState extends State<ResetCodeScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

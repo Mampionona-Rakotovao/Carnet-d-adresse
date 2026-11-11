@@ -5,6 +5,7 @@ import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../address_detail/widgets/landmark_form_sheet.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_states.dart';
 
 /// Écran affiché juste après la création d'une adresse : guide l'utilisateur
@@ -131,6 +132,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text('Finaliser · ${widget.addressName}'),
         automaticallyImplyLeading: false, // on force à passer par "Terminer"
@@ -143,8 +145,10 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
+      body: AppBackground(
+        style: AppBackgroundStyle.rues,
+        child: Column(
+          children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
@@ -202,6 +206,7 @@ class _StepWizardScreenState extends State<StepWizardScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

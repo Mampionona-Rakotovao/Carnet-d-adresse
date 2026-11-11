@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase_client.dart';
+import '../../ui/app_background.dart';
 
 /// Demande le code à 6 chiffres reçu par email juste après l'inscription.
 class ConfirmEmailScreen extends StatefulWidget {
@@ -64,9 +65,12 @@ class _ConfirmEmailScreenState extends State<ConfirmEmailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Confirme ton email')),
-      body: Center(
-        child: ConstrainedBox(
+      body: AppBackground(
+        style: AppBackgroundStyle.hero,
+        child: Center(
+          child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -122,6 +126,7 @@ class _ConfirmEmailScreenState extends State<ConfirmEmailScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

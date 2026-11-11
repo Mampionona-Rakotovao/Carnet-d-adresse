@@ -4,6 +4,7 @@ import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
 import 'widgets/shared_address_content.dart';
 
@@ -78,8 +79,11 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Ouvrir un lien')),
-      body: ListView(
+      body: AppBackground(
+        style: AppBackgroundStyle.calme,
+        child: ListView(
         // La barre flottante est posée par le shell au-dessus du contenu :
         // la liste réserve sa hauteur + une marge.
         padding: AppSpacing.form.copyWith(
@@ -128,6 +132,7 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
               steps: _steps,
             ),
         ],
+        ),
       ),
     );
   }

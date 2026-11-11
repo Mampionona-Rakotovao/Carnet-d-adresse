@@ -11,6 +11,7 @@ import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
 import '../help/widgets/contextual_help_button.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/section.dart';
 import '../../ui/status_chip.dart';
@@ -243,6 +244,7 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
     final scheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title:
             Text(widget.isEditMode ? "Modifier l'adresse" : 'Nouvelle adresse'),
@@ -259,235 +261,238 @@ class _AddressFormScreenState extends State<AddressFormScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: AppSpacing.form,
-          children: [
-            FormSection(
-              title: 'Photo du point de repère',
-              icon: Icons.photo_camera_outlined,
-              description:
-                  'Ajoutez une photo pour faciliter la reconnaissance du lieu.',
-              children: [
-                GestureDetector(
-                  onTap: _pickPhoto,
-                  child: Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: scheme.outlineVariant),
-                      borderRadius: AppRadius.cardRadius,
-                      color: scheme.surfaceContainerHighest
-                          .withValues(alpha: 0.25),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: AppRadius.cardRadius,
-                      child: _pickedPhotoBytes != null
-                          ? Image.memory(
-                              _pickedPhotoBytes!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                            )
-                          : (_existingPhotoUrl != null
-                              ? Image.network(
-                                  _existingPhotoUrl!,
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                )
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.add_photo_alternate_outlined,
-                                      size: 44,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(height: AppSpacing.xs),
-                                    Text(
-                                      'Appuyer pour ajouter une photo',
-                                      style:
-                                          theme.textTheme.bodyMedium?.copyWith(
+      body: AppBackground(
+        style: AppBackgroundStyle.rues,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: AppSpacing.form,
+            children: [
+              FormSection(
+                title: 'Photo du point de repère',
+                icon: Icons.photo_camera_outlined,
+                description:
+                    'Ajoutez une photo pour faciliter la reconnaissance du lieu.',
+                children: [
+                  GestureDetector(
+                    onTap: _pickPhoto,
+                    child: Container(
+                      height: 180,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: scheme.outlineVariant),
+                        borderRadius: AppRadius.cardRadius,
+                        color: scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.25),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: AppRadius.cardRadius,
+                        child: _pickedPhotoBytes != null
+                            ? Image.memory(
+                                _pickedPhotoBytes!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                              )
+                            : (_existingPhotoUrl != null
+                                ? Image.network(
+                                    _existingPhotoUrl!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.add_photo_alternate_outlined,
+                                        size: 44,
                                         color: scheme.onSurfaceVariant,
                                       ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.xxs),
-                                    Text(
-                                      'Optionnel',
-                                      style: theme.textTheme.labelMedium,
-                                    ),
-                                  ],
-                                )),
-                    ),
-                  ),
-                ),
-                if (_pickedPhotoBytes != null || _existingPhotoUrl != null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: _removePhoto,
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Supprimer la photo'),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FormSection(
-              title: 'Informations du lieu',
-              icon: Icons.place_outlined,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom du lieu *',
-                    hintText: 'Ex. : Parking derrière la mairie',
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Le nom est obligatoire'
-                      : null,
-                ),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    hintText: 'Remarques sur le lieu (facultatif)',
-                  ),
-                  maxLines: 3,
-                ),
-                TextFormField(
-                  controller: _localityController,
-                  decoration: const InputDecoration(
-                    labelText: 'Localité',
-                    hintText: 'Commune, quartier, village (facultatif)',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FormSection(
-              title: 'Localisation',
-              icon: Icons.gps_fixed,
-              description:
-                  'Capturez votre position, ajustez-la sur la carte, puis confirmez le type de repérage.',
-              children: [
-                FilledButton.icon(
-                  onPressed: _locatingGps ? null : _captureGps,
-                  icon: _locatingGps
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.my_location),
-                  label: Text(
-                    _latitude == null || _longitude == null
-                        ? 'Capturer ma position actuelle'
-                        : 'Position : ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                  ),
-                ),
-                if (_locationBlocked)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.settings),
-                      label: const Text('Ouvrir les paramètres du téléphone'),
-                      onPressed: _openSettingsAndRetry,
-                    ),
-                  ),
-                if (_latitude != null && _longitude != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  _PositionPickerMap(
-                    key: ValueKey('gps-$_posRevision'),
-                    initialPosition: LatLng(_latitude!, _longitude!),
-                    onPositionChanged: (p) => setState(() {
-                      _latitude = p.latitude;
-                      _longitude = p.longitude;
-                    }),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Type de repérage à confirmer',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  SegmentedButton<GpsType>(
-                    segments: const [
-                      ButtonSegment(
-                        value: GpsType.exact,
-                        label: Text('Position exacte'),
-                        icon: Icon(Icons.gps_fixed),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        'Appuyer pour ajouter une photo',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xxs),
+                                      Text(
+                                        'Optionnel',
+                                        style: theme.textTheme.labelMedium,
+                                      ),
+                                    ],
+                                  )),
                       ),
-                      ButtonSegment(
-                        value: GpsType.accessPoint,
-                        label: Text("Point d'accès"),
-                        icon: Icon(Icons.route),
-                      ),
-                    ],
-                    selected: {_gpsType},
-                    onSelectionChanged: (s) {
-                      setState(() => _gpsType = s.first);
-                    },
+                    ),
                   ),
-                  if (_gpsType == GpsType.accessPoint)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                      child: Text(
-                        GpsType.accessPoint.explanation,
-                        style: theme.textTheme.bodySmall,
+                  if (_pickedPhotoBytes != null || _existingPhotoUrl != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _removePhoto,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Supprimer la photo'),
                       ),
                     ),
                 ],
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FormSection(
-              title: 'Visibilité',
-              icon: Icons.visibility_outlined,
-              description: 'Définissez qui peut voir cette adresse.',
-              children: [
-                SegmentedButton<AddressVisibility>(
-                  segments: const [
-                    ButtonSegment(
-                      value: AddressVisibility.public,
-                      label: Text('Publique'),
-                      icon: Icon(Icons.public),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FormSection(
+                title: 'Informations du lieu',
+                icon: Icons.place_outlined,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nom du lieu *',
+                      hintText: 'Ex. : Parking derrière la mairie',
                     ),
-                    ButtonSegment(
-                      value: AddressVisibility.private,
-                      label: Text('Privée'),
-                      icon: Icon(Icons.lock),
-                    ),
-                  ],
-                  selected: {_visibility},
-                  onSelectionChanged: (s) =>
-                      setState(() => _visibility = s.first),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                  child: Text(
-                    _visibility == AddressVisibility.public
-                        ? AddressVisibility.public.explanation
-                        : AddressVisibility.private.explanation,
-                    style: theme.textTheme.bodySmall,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Le nom est obligatoire'
+                        : null,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(widget.isEditMode
-                      ? 'Enregistrer les modifications'
-                      : 'Enregistrer'),
-            ),
-          ],
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'Remarques sur le lieu (facultatif)',
+                    ),
+                    maxLines: 3,
+                  ),
+                  TextFormField(
+                    controller: _localityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Localité',
+                      hintText: 'Commune, quartier, village (facultatif)',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FormSection(
+                title: 'Localisation',
+                icon: Icons.gps_fixed,
+                description:
+                    'Capturez votre position, ajustez-la sur la carte, puis confirmez le type de repérage.',
+                children: [
+                  FilledButton.icon(
+                    onPressed: _locatingGps ? null : _captureGps,
+                    icon: _locatingGps
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location),
+                    label: Text(
+                      _latitude == null || _longitude == null
+                          ? 'Capturer ma position actuelle'
+                          : 'Position : ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
+                    ),
+                  ),
+                  if (_locationBlocked)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.settings),
+                        label: const Text('Ouvrir les paramètres du téléphone'),
+                        onPressed: _openSettingsAndRetry,
+                      ),
+                    ),
+                  if (_latitude != null && _longitude != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _PositionPickerMap(
+                      key: ValueKey('gps-$_posRevision'),
+                      initialPosition: LatLng(_latitude!, _longitude!),
+                      onPositionChanged: (p) => setState(() {
+                        _latitude = p.latitude;
+                        _longitude = p.longitude;
+                      }),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Type de repérage à confirmer',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    SegmentedButton<GpsType>(
+                      segments: const [
+                        ButtonSegment(
+                          value: GpsType.exact,
+                          label: Text('Position exacte'),
+                          icon: Icon(Icons.gps_fixed),
+                        ),
+                        ButtonSegment(
+                          value: GpsType.accessPoint,
+                          label: Text("Point d'accès"),
+                          icon: Icon(Icons.route),
+                        ),
+                      ],
+                      selected: {_gpsType},
+                      onSelectionChanged: (s) {
+                        setState(() => _gpsType = s.first);
+                      },
+                    ),
+                    if (_gpsType == GpsType.accessPoint)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                        child: Text(
+                          GpsType.accessPoint.explanation,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FormSection(
+                title: 'Visibilité',
+                icon: Icons.visibility_outlined,
+                description: 'Définissez qui peut voir cette adresse.',
+                children: [
+                  SegmentedButton<AddressVisibility>(
+                    segments: const [
+                      ButtonSegment(
+                        value: AddressVisibility.public,
+                        label: Text('Publique'),
+                        icon: Icon(Icons.public),
+                      ),
+                      ButtonSegment(
+                        value: AddressVisibility.private,
+                        label: Text('Privée'),
+                        icon: Icon(Icons.lock),
+                      ),
+                    ],
+                    selected: {_visibility},
+                    onSelectionChanged: (s) =>
+                        setState(() => _visibility = s.first),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                    child: Text(
+                      _visibility == AddressVisibility.public
+                          ? AddressVisibility.public.explanation
+                          : AddressVisibility.private.explanation,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(widget.isEditMode
+                        ? 'Enregistrer les modifications'
+                        : 'Enregistrer'),
+              ),
+            ],
+          ),
         ),
       ),
     );

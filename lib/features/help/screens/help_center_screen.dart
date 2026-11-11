@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../../ui/app_background.dart';
 import '../../../ui/section.dart';
 import '../data/help_content.dart';
 import '../data/help_search.dart';
@@ -75,10 +76,13 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
         _query.isEmpty ? const <HelpSearchResult>[] : _search.search(_query);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Aide')),
-      body: ListView(
-        padding: AppSpacing.list,
-        children: [
+      body: AppBackground(
+        style: AppBackgroundStyle.calme,
+        child: ListView(
+          padding: AppSpacing.list,
+          children: [
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
@@ -104,6 +108,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
           else
             ..._buildHome(context),
         ],
+        ),
       ),
     );
   }

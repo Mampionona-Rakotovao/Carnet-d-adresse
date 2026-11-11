@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/shared_with_me.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/share_link.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_states.dart';
 import 'widgets/shared_address_content.dart';
 
@@ -152,22 +153,18 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
     final notice =
         result == null ? null : recipientExpirationNotice(result.expiresAt);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Adresse partagée'),
-        leading: IconButton(
-          icon: const Icon(Icons.home_outlined),
-          tooltip: 'Accueil',
-          onPressed: _goHome,
-        ),
-      ),
-      body: expiredNow
-          ? AppErrorState(
+    final body = expiredNow
+        ? AppBackground(
+            style: AppBackgroundStyle.vide,
+            child: AppErrorState(
               title: 'Ce lien a expiré',
               message: shareRedeemErrorMessage('expired'),
-            )
-          : result != null && address != null
-              ? ListView(
+            ),
+          )
+        : result != null && address != null
+            ? AppBackground(
+                style: AppBackgroundStyle.calme,
+                child: ListView(
                   padding: AppSpacing.form,
                   children: [
                     if (notice != null) ...[
@@ -205,18 +202,40 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
                       steps: result.steps,
                     ),
                   ],
-                )
-              : _error != null
-                  ? AppErrorState(error: _error, onRetry: _redeem)
-                  : _errorCode != null
-                      ? AppErrorState(
+                ),
+              )
+            : _error != null
+                ? AppBackground(
+                    style: AppBackgroundStyle.calme,
+                    child: AppErrorState(error: _error, onRetry: _redeem),
+                  )
+                : _errorCode != null
+                    ? AppBackground(
+                        style: AppBackgroundStyle.vide,
+                        child: AppErrorState(
                           title: _errorTitle(_errorCode),
                           message: shareRedeemErrorMessage(_errorCode),
                           onRetry: _errorCode == 'auth_required'
                               ? _handleErrorAction
                               : null,
-                        )
-                      : _buildIntro(context),
+                        ),
+                      )
+                    : AppBackground(
+                        style: AppBackgroundStyle.calme,
+                        child: _buildIntro(context),
+                      );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('Adresse partagée'),
+        leading: IconButton(
+          icon: const Icon(Icons.home_outlined),
+          tooltip: 'Accueil',
+          onPressed: _goHome,
+        ),
+      ),
+      body: body,
     );
   }
 
