@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/app_scaffold.dart';
 import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
 import '../../ui/status_chip.dart';
@@ -233,7 +233,6 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: ShellNavigationBar.of(context),
     );
   }
 
@@ -257,7 +256,11 @@ class _SearchScreenState extends State<SearchScreen> {
       return const AppLoading();
     }
     return ListView.builder(
-      padding: AppSpacing.list,
+      // La barre flottante est posée par le shell au-dessus du contenu :
+      // la liste réserve sa hauteur + une marge.
+      padding: AppSpacing.list.copyWith(
+        bottom: AppBottomNav.hauteurTotale(context) + AppSpacing.md,
+      ),
       itemCount: _results.length,
       itemBuilder: (context, index) {
         final a = _results[index];

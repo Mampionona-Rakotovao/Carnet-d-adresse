@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/app_scaffold.dart';
 import '../../core/onboarding.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../models/address.dart';
+import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_states.dart';
 import '../../ui/section.dart';
 import '../../ui/status_chip.dart';
@@ -252,7 +252,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               : ListView(
-                  padding: AppSpacing.list.copyWith(bottom: AppSpacing.xxl * 2),
+                  padding: AppSpacing.list.copyWith(
+                    // La barre flottante est posée par le shell au-dessus du
+                    // contenu : la liste réserve sa hauteur + une marge pour
+                    // que la dernière carte reste accessible.
+                    bottom: AppBottomNav.hauteurTotale(context) +
+                        AppSpacing.md,
+                  ),
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +306,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _shell(Widget body) => Scaffold(
         appBar: _appBar(),
         body: body,
-        bottomNavigationBar: ShellNavigationBar.of(context),
       );
 }
 

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../core/app_scaffold.dart';
 import '../../core/shared_with_me.dart';
 import '../../models/address.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../ui/app_bottom_nav.dart';
 import 'widgets/shared_address_content.dart';
 
 /// Écran où un destinataire colle un code/lien de partage reçu.
@@ -80,7 +80,11 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Ouvrir un lien')),
       body: ListView(
-        padding: AppSpacing.form,
+        // La barre flottante est posée par le shell au-dessus du contenu :
+        // la liste réserve sa hauteur + une marge.
+        padding: AppSpacing.form.copyWith(
+          bottom: AppBottomNav.hauteurTotale(context) + AppSpacing.md,
+        ),
         children: [
           TextField(
             controller: _controller,
@@ -125,7 +129,6 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: ShellNavigationBar.of(context),
     );
   }
 }
