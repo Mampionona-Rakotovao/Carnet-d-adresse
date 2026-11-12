@@ -174,17 +174,26 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
           'Le lien ne fonctionnera plus pour les personnes qui le possèdent.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.red,
-              backgroundColor: Colors.red.shade50,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Révoquer'),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Annuler'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    backgroundColor: Colors.red.shade50,
+                  ),
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Révoquer'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -278,9 +287,12 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer'),
+            ),
           ),
         ],
       ),

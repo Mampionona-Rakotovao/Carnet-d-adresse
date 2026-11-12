@@ -128,8 +128,8 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Align(
-                alignment: Alignment.centerRight,
+              SizedBox(
+                width: double.infinity,
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
                   child: const Text('Passer'),
@@ -205,14 +205,18 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
               Row(
                 children: [
                   if (_index > 0)
-                    TextButton(
-                      onPressed: _previous,
-                      child: const Text('Précédent'),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _previous,
+                        child: const Text('Précédent'),
+                      ),
                     ),
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: _next,
-                    child: Text(isLast ? 'Terminer' : 'Suivant'),
+                  if (_index > 0) const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _next,
+                      child: Text(isLast ? 'Terminer' : 'Suivant'),
+                    ),
                   ),
                 ],
               ),

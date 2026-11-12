@@ -66,14 +66,23 @@ class _HelpArticleScreenState extends State<HelpArticleScreen> {
             'contacter le support pour obtenir de l’aide.',
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Plus tard'),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              icon: const Icon(Icons.mail_outline),
-              label: const Text('Contacter'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: const Text('Plus tard'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
+                    icon: const Icon(Icons.mail_outline),
+                    label: const Text('Contacter'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -121,173 +130,173 @@ class _HelpArticleScreenState extends State<HelpArticleScreen> {
         child: ListView(
           padding: AppSpacing.list,
           children: [
-          Text(
-            article.categorie.label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.primary,
-              letterSpacing: 1.1,
+            Text(
+              article.categorie.label.toUpperCase(),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.primary,
+                letterSpacing: 1.1,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(article.titre, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            article.resume,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          if (article.openRoute != null && article.openLabel != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            OutlinedButton.icon(
-              onPressed: () => openHelpRoute(context, article.openRoute!),
-              icon: const Icon(Icons.open_in_new),
-              label: Text(article.openLabel!),
-            ),
-          ],
-          if (article.etapes.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.lg),
-            const SectionHeader(
-              title: 'Comment faire',
-              icon: Icons.checklist,
-            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(article.titre, style: theme.textTheme.headlineSmall),
             const SizedBox(height: AppSpacing.sm),
-            for (var i = 0; i < article.etapes.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: scheme.primaryContainer,
-                      foregroundColor: scheme.onPrimaryContainer,
-                      child: Text(
-                        '${i + 1}',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 4),
+            Text(
+              article.resume,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            if (article.openRoute != null && article.openLabel != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              OutlinedButton.icon(
+                onPressed: () => openHelpRoute(context, article.openRoute!),
+                icon: const Icon(Icons.open_in_new),
+                label: Text(article.openLabel!),
+              ),
+            ],
+            if (article.etapes.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              const SectionHeader(
+                title: 'Comment faire',
+                icon: Icons.checklist,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (var i = 0; i < article.etapes.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: scheme.primaryContainer,
+                        foregroundColor: scheme.onPrimaryContainer,
                         child: Text(
-                          article.etapes[i],
-                          style: theme.textTheme.bodyMedium,
+                          '${i + 1}',
+                          style: theme.textTheme.labelMedium,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            article.etapes[i],
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            if (article.astuces.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            'Bon à savoir',
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      for (final tip in article.astuces)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('•'),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: Text(
+                                  tip,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-          ],
-          if (article.astuces.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
+            ],
+            if (related.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              const SectionHeader(
+                title: 'Voir aussi',
+                icon: Icons.link,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (var i = 0; i < related.length; i++) ...[
+                if (i > 0) const SizedBox(height: AppSpacing.xs),
+                HelpArticleTile(
+                  article: related[i],
+                  onTap: () => context.push('/aide/${related[i].id}'),
+                ),
+              ],
+            ],
+            const SizedBox(height: AppSpacing.lg),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          color: scheme.primary,
+                    Text(
+                      'Cet article vous a-t-il aidé ?',
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    if (_feedback != null) ...[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        _feedback == 'oui'
+                            ? 'Votre réponse : Oui'
+                            : 'Votre réponse : Non',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Text(
-                          'Bon à savoir',
-                          style: theme.textTheme.titleSmall,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: _savingFeedback
+                              ? null
+                              : () => _saveFeedback(article.titre, true),
+                          icon: const Icon(Icons.thumb_up_alt_outlined),
+                          label: const Text('Oui'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _savingFeedback
+                              ? null
+                              : () => _saveFeedback(article.titre, false),
+                          icon: const Icon(Icons.thumb_down_alt_outlined),
+                          label: const Text('Non'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    for (final tip in article.astuces)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('•'),
-                            const SizedBox(width: AppSpacing.xs),
-                            Expanded(
-                              child: Text(
-                                tip,
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
               ),
             ),
           ],
-          if (related.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.lg),
-            const SectionHeader(
-              title: 'Voir aussi',
-              icon: Icons.link,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            for (var i = 0; i < related.length; i++) ...[
-              if (i > 0) const SizedBox(height: AppSpacing.xs),
-              HelpArticleTile(
-                article: related[i],
-                onTap: () => context.push('/aide/${related[i].id}'),
-              ),
-            ],
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Cet article vous a-t-il aidé ?',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  if (_feedback != null) ...[
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      _feedback == 'oui'
-                          ? 'Votre réponse : Oui'
-                          : 'Votre réponse : Non',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.md),
-                  Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      FilledButton.tonalIcon(
-                        onPressed: _savingFeedback
-                            ? null
-                            : () => _saveFeedback(article.titre, true),
-                        icon: const Icon(Icons.thumb_up_alt_outlined),
-                        label: const Text('Oui'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _savingFeedback
-                            ? null
-                            : () => _saveFeedback(article.titre, false),
-                        icon: const Icon(Icons.thumb_down_alt_outlined),
-                        label: const Text('Non'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
         ),
       ),
     );

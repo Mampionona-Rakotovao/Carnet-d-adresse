@@ -87,13 +87,23 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Envoyer'),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(controller.text.trim()),
+                  child: const Text('Envoyer'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -151,157 +161,158 @@ class _AuthScreenState extends State<AuthScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Column(
-                      children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: scheme.primaryContainer,
-                            shape: BoxShape.circle,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Column(
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: scheme.primaryContainer,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.location_on,
+                              size: 36,
+                              color: scheme.onPrimaryContainer,
+                            ),
                           ),
-                          child: Icon(
-                            Icons.location_on,
-                            size: 36,
-                            color: scheme.onPrimaryContainer,
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            "Carnet d'adresses",
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineSmall,
                           ),
+                          const SizedBox(height: AppSpacing.xxs),
+                          Text(
+                            _isSignUp
+                                ? 'Créez votre compte pour enregistrer vos lieux'
+                                : 'Connectez-vous pour accéder à votre carnet',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      if (_isSignUp) ...[
+                        TextFormField(
+                          controller: _nameController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Nom',
+                            hintText: 'Votre nom',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Le nom est obligatoire';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Text(
-                          "Carnet d'adresses",
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: AppSpacing.xxs),
-                        Text(
-                          _isSignUp
-                              ? 'Créez votre compte pour enregistrer vos lieux'
-                              : 'Connectez-vous pour accéder à votre carnet',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
                       ],
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    if (_isSignUp) ...[
                       TextFormField(
-                        controller: _nameController,
-                        textCapitalization: TextCapitalization.words,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          labelText: 'Nom',
-                          hintText: 'Votre nom',
-                          prefixIcon: Icon(Icons.person_outline),
+                          labelText: 'Adresse e-mail',
+                          hintText: 'exemple@mail.com',
+                          prefixIcon: Icon(Icons.alternate_email),
                         ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Le nom est obligatoire';
+                            return 'L\'e-mail est obligatoire';
+                          }
+                          final email = v.trim();
+                          final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                          if (!regex.hasMatch(email)) {
+                            return 'Format d\'e-mail invalide';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: AppSpacing.md),
-                    ],
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Adresse e-mail',
-                        hintText: 'exemple@mail.com',
-                        prefixIcon: Icon(Icons.alternate_email),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'L\'e-mail est obligatoire';
-                        }
-                        final email = v.trim();
-                        final regex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                        if (!regex.hasMatch(email)) {
-                          return 'Format d\'e-mail invalide';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscure,
-                      decoration: InputDecoration(
-                        labelText: 'Mot de passe',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscure,
+                        decoration: InputDecoration(
+                          labelText: 'Mot de passe',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            tooltip: _obscure ? 'Afficher' : 'Masquer',
                           ),
-                          tooltip: _obscure ? 'Afficher' : 'Masquer',
                         ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Le mot de passe est obligatoire';
+                          }
+                          if (_isSignUp && v.trim().length < 6) {
+                            return 'Minimum 6 caractères';
+                          }
+                          return null;
+                        },
                       ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Le mot de passe est obligatoire';
-                        }
-                        if (_isSignUp && v.trim().length < 6) {
-                          return 'Minimum 6 caractères';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (!_isSignUp) ...[
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _loading ? null : _forgotPassword,
-                          child: const Text('Mot de passe oublié ?'),
+                      if (!_isSignUp) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _loading ? null : _forgotPassword,
+                            child: const Text('Mot de passe oublié ?'),
+                          ),
                         ),
+                      ] else
+                        const SizedBox(height: AppSpacing.sm),
+                      FilledButton(
+                        onPressed: _loading ? null : _submit,
+                        child: _loading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(_isSignUp ? "S'inscrire" : 'Se connecter'),
                       ),
-                    ] else
+                      const SizedBox(height: AppSpacing.lg),
+                      const GoogleSignInButton(),
                       const SizedBox(height: AppSpacing.sm),
-                    FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(_isSignUp ? "S'inscrire" : 'Se connecter'),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const GoogleSignInButton(),
-                    const SizedBox(height: AppSpacing.sm),
-                    TextButton(
-                      onPressed: _loading
-                          ? null
-                          : () => setState(() => _isSignUp = !_isSignUp),
-                      child: Text(
-                        _isSignUp
-                            ? "Déjà un compte ? Se connecter"
-                            : "Pas de compte ? S'inscrire",
+                      TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () => setState(() => _isSignUp = !_isSignUp),
+                        child: Text(
+                          _isSignUp
+                              ? "Déjà un compte ? Se connecter"
+                              : "Pas de compte ? S'inscrire",
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

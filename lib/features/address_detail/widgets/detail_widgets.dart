@@ -293,14 +293,16 @@ class DetailActionBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              IconButton.filledTonal(
-                onPressed: onDelete,
-                style: IconButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  backgroundColor: Colors.red.shade50,
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: onDelete,
+                  style: FilledButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    backgroundColor: Colors.red.shade50,
+                  ),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Supprimer'),
                 ),
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Supprimer',
               ),
             ],
           ),

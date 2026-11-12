@@ -67,30 +67,31 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actionsAlignment: MainAxisAlignment.center,
           actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          actionsOverflowDirection: VerticalDirection.down,
           actions: [
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: scheme.error,
-                  foregroundColor: scheme.onError,
-                  minimumSize: const Size.fromHeight(48),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.error,
+                      foregroundColor: scheme.onError,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Déconnexion'),
+                  ),
                 ),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Déconnexion'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
                 ),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Annuler'),
-              ),
+              ],
             ),
           ],
         );
@@ -260,8 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // La barre flottante est posée par le shell au-dessus du
                     // contenu : la liste réserve sa hauteur + une marge pour
                     // que la dernière carte reste accessible.
-                    bottom: AppBottomNav.hauteurTotale(context) +
-                        AppSpacing.md,
+                    bottom: AppBottomNav.hauteurTotale(context) + AppSpacing.md,
                   ),
                   children: [
                     Column(
