@@ -32,10 +32,11 @@ enum AppBackgroundStyle {
 /// quadrillage de rues, itinéraires pointillés, pins, cercles de précision
 /// GPS, boussole — puis [child] par-dessus. Aucune image, aucune dépendance.
 ///
-/// Lisibilité : le motif reste à peine perceptible. Les traits sont en
-/// `ColorScheme.primary` et quelques éléments en `AppPalette.accent`, à des
-/// opacités très faibles (4 à 8 % selon le mode et le style) ; les textes et
-/// surfaces pleins (cartes, champs) passent par-dessus sans transparence.
+/// Lisibilité : le motif reste décoratif, mais assez contrasté pour se lire
+/// en mode clair comme en sombre. Les traits suivent `ColorScheme.primary`
+/// (clair) ou `ColorScheme.secondary` (sombre, plus lumineux sur fond nuit),
+/// et quelques éléments `AppPalette.accent`. Les cartes et champs, opaques,
+/// passent par-dessus sans mélange.
 ///
 /// Performance : la couche du motif est isolée par un [RepaintBoundary] qui
 /// l'entoure **elle seule** — le contenu défile au-dessus sans jamais
@@ -65,6 +66,10 @@ class AppBackground extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final clair = theme.brightness == Brightness.light;
+    // En sombre, le bleu primaire est trop proche du fond : le secondary
+    // (cyan plus clair) garde le motif lisible. L'accent teal reste distinct.
+    final couleurTrait = clair ? scheme.primary : scheme.secondary;
+    final couleurAccent = AppPalette.of(context).accent;
 
     return Stack(
       // Les contraintes du parent passent telles quelles au contenu :
@@ -80,11 +85,10 @@ class AppBackground extends StatelessWidget {
               painter: _MotifPainter(
                 style: style,
                 fond: theme.scaffoldBackgroundColor,
-                trait: scheme.primary
-                    .withValues(alpha: _alphaTrait(style, clair)),
-                accent: AppPalette.of(context)
-                    .accent
-                    .withValues(alpha: _alphaAccent(style, clair)),
+                trait:
+                    couleurTrait.withValues(alpha: _alphaTrait(style, clair)),
+                accent:
+                    couleurAccent.withValues(alpha: _alphaAccent(style, clair)),
               ),
               isComplex: true,
               willChange: false,
@@ -111,33 +115,39 @@ class AppBackground extends StatelessWidget {
     _Motif.viderCache();
   }
 
-  /// Opacité des traits, dans les bandes prévues : 4 à 6 % en mode clair,
-  /// 5 à 8 % en mode sombre. Le mode clair reste au plancher ou au milieu
-  /// de bande : le texte secondaire clair (#64748B sur #F7F9FC) n'a presque
-  /// aucune marge de contraste, chaque point d'opacité compte.
+  /// Opacité des traits : assez haute pour que le motif se lise, assez
+  /// basse pour ne pas concurrencer le texte secondaire. Le mode sombre
+  /// monte un peu plus : le fond nuit avale les traits trop transparents.
   static double _alphaTrait(AppBackgroundStyle style, bool clair) {
     if (clair) {
       return switch (style) {
-        AppBackgroundStyle.calme => 0.04,
-        AppBackgroundStyle.rues => 0.045,
-        _ => 0.05,
+        AppBackgroundStyle.calme => 0.10,
+        AppBackgroundStyle.rues => 0.11,
+        AppBackgroundStyle.hero => 0.13,
+        _ => 0.12,
       };
     }
     return switch (style) {
-      AppBackgroundStyle.calme => 0.05,
-      AppBackgroundStyle.rues => 0.055,
-      AppBackgroundStyle.hero => 0.08,
-      _ => 0.065,
+      AppBackgroundStyle.calme => 0.14,
+      AppBackgroundStyle.rues => 0.15,
+      AppBackgroundStyle.hero => 0.20,
+      _ => 0.18,
     };
   }
 
-  /// Opacité des éléments colorés (pins, aiguilles, points GPS) : 6 à 8 %
-  /// en mode clair, 6 à 9 % en mode sombre. Plancher en mode clair.
+  /// Opacité des éléments colorés (pins, aiguilles, points GPS).
   static double _alphaAccent(AppBackgroundStyle style, bool clair) {
-    if (clair) return 0.06;
+    if (clair) {
+      return switch (style) {
+        AppBackgroundStyle.calme => 0.14,
+        AppBackgroundStyle.hero => 0.20,
+        _ => 0.18,
+      };
+    }
     return switch (style) {
-      AppBackgroundStyle.hero => 0.09,
-      _ => 0.075,
+      AppBackgroundStyle.calme => 0.18,
+      AppBackgroundStyle.hero => 0.26,
+      _ => 0.22,
     };
   }
 }
@@ -243,12 +253,11 @@ class _Motif {
       ..strokeJoin = StrokeJoin.round;
 
     for (final marque in marques) {
-      final pinceau = marque.encre == _Encre.trait ? pinceauTrait : pinceauAccent;
+      final pinceau =
+          marque.encre == _Encre.trait ? pinceauTrait : pinceauAccent;
       pinceau.color = marque.encre == _Encre.trait ? trait : accent;
-      pinceau.strokeWidth = marque.largeur;
-      pinceau.style = marque.plein
-          ? PaintingStyle.fill
-          : PaintingStyle.stroke;
+      pinceau.strokeWidth = marque.largeur * 1.25;
+      pinceau.style = marque.plein ? PaintingStyle.fill : PaintingStyle.stroke;
       canvas.drawPath(marque.chemin, pinceau);
     }
 
@@ -345,12 +354,16 @@ class _Motif {
 
     final grille = Path();
     for (double x = -diagonale; x <= diagonale; x += pas) {
-      grille.moveTo(tourner(Offset(x, -diagonale)).dx, tourner(Offset(x, -diagonale)).dy);
-      grille.lineTo(tourner(Offset(x, diagonale)).dx, tourner(Offset(x, diagonale)).dy);
+      grille.moveTo(
+          tourner(Offset(x, -diagonale)).dx, tourner(Offset(x, -diagonale)).dy);
+      grille.lineTo(
+          tourner(Offset(x, diagonale)).dx, tourner(Offset(x, diagonale)).dy);
     }
     for (double y = -diagonale; y <= diagonale; y += pas) {
-      grille.moveTo(tourner(Offset(-diagonale, y)).dx, tourner(Offset(-diagonale, y)).dy);
-      grille.lineTo(tourner(Offset(diagonale, y)).dx, tourner(Offset(diagonale, y)).dy);
+      grille.moveTo(
+          tourner(Offset(-diagonale, y)).dx, tourner(Offset(-diagonale, y)).dy);
+      grille.lineTo(
+          tourner(Offset(diagonale, y)).dx, tourner(Offset(diagonale, y)).dy);
     }
 
     // Zone centrale dégagée.
@@ -398,14 +411,20 @@ class _Motif {
     final itineraire = Path()
       ..moveTo(-12, zoneHaut * 0.58)
       ..cubicTo(
-        t.width * 0.22, zoneHaut * 0.10,
-        t.width * 0.38, zoneHaut * 0.85,
-        t.width * 0.50, zoneHaut * 0.42,
+        t.width * 0.22,
+        zoneHaut * 0.10,
+        t.width * 0.38,
+        zoneHaut * 0.85,
+        t.width * 0.50,
+        zoneHaut * 0.42,
       )
       ..cubicTo(
-        t.width * 0.62, zoneHaut * 0.05,
-        t.width * 0.80, zoneHaut * 0.72,
-        t.width + 12, zoneHaut * 0.30,
+        t.width * 0.62,
+        zoneHaut * 0.05,
+        t.width * 0.80,
+        zoneHaut * 0.72,
+        t.width + 12,
+        zoneHaut * 0.30,
       );
     final pointilles = _pointille(itineraire, tiret: 9, espace: 8);
     marques.add(_Marque(pointilles, _Encre.trait, 1.5));
@@ -414,12 +433,10 @@ class _Motif {
     final metrics = itineraire.computeMetrics().toList();
     if (metrics.isNotEmpty) {
       final longueur = metrics.first.length;
-      final depart = metrics.first
-          .getTangentForOffset(longueur * 0.12)
-          ?.position;
-      final arrivee = metrics.first
-          .getTangentForOffset(longueur * 0.88)
-          ?.position;
+      final depart =
+          metrics.first.getTangentForOffset(longueur * 0.12)?.position;
+      final arrivee =
+          metrics.first.getTangentForOffset(longueur * 0.88)?.position;
       if (depart != null) {
         final point = Path()
           ..addOval(Rect.fromCircle(center: depart, radius: 3.2));
@@ -445,7 +462,8 @@ class _Motif {
 
     // Fondu doux vers la couleur de fond : l'illustration se fond dans la
     // page, le formulaire en dessous reste sur fond uni.
-    return _Motif(marques, Rect.fromLTWH(0, zoneHaut * 0.55, t.width, t.height * 0.30));
+    return _Motif(
+        marques, Rect.fromLTWH(0, zoneHaut * 0.55, t.width, t.height * 0.30));
   }
 
   /// Relief seul, très discret : aide, partage reçu.
@@ -495,11 +513,15 @@ class _Motif {
     final interieur = Path()
       ..moveTo(rect.left + 14, rect.bottom - 14)
       ..cubicTo(
-        rect.left + rect.width * 0.30, rect.top + 12,
-        rect.left + rect.width * 0.62, rect.bottom - 10,
-        rect.right - 14, rect.top + 16,
+        rect.left + rect.width * 0.30,
+        rect.top + 12,
+        rect.left + rect.width * 0.62,
+        rect.bottom - 10,
+        rect.right - 14,
+        rect.top + 16,
       );
-    marques.add(_Marque(_pointille(interieur, tiret: 6, espace: 6), _Encre.trait, 1.0));
+    marques.add(
+        _Marque(_pointille(interieur, tiret: 6, espace: 6), _Encre.trait, 1.0));
 
     // Point de départ plein et pin d'arrivée sur la carte.
     final depart = Path()
@@ -553,7 +575,9 @@ class _Motif {
       // Courbe fermée lissée : les sommets servent de points de contrôle,
       // la courbe passe par les milieux des arcs.
       Offset milieu(Offset a, Offset b) => (a + b) / 2;
-      final chemin = Path()..moveTo(milieu(sommets.last, sommets.first).dx, milieu(sommets.last, sommets.first).dy);
+      final chemin = Path()
+        ..moveTo(milieu(sommets.last, sommets.first).dx,
+            milieu(sommets.last, sommets.first).dy);
       for (var i = 0; i < points; i++) {
         final suivant = sommets[(i + 1) % points];
         final controle = milieu(sommets[i], suivant);
@@ -578,17 +602,24 @@ class _Motif {
     final goutte = Path()
       ..moveTo(gauche.dx, gauche.dy)
       ..cubicTo(
-        gauche.dx, centre.dy - r,
-        droit.dx, centre.dy - r,
-        droit.dx, droit.dy,
+        gauche.dx,
+        centre.dy - r,
+        droit.dx,
+        centre.dy - r,
+        droit.dx,
+        droit.dy,
       )
       ..quadraticBezierTo(
-        centre.dx + r * 0.60, centre.dy + r * 0.95,
-        pointe.dx, pointe.dy,
+        centre.dx + r * 0.60,
+        centre.dy + r * 0.95,
+        pointe.dx,
+        pointe.dy,
       )
       ..quadraticBezierTo(
-        centre.dx - r * 0.60, centre.dy + r * 0.95,
-        gauche.dx, gauche.dy,
+        centre.dx - r * 0.60,
+        centre.dy + r * 0.95,
+        gauche.dx,
+        gauche.dy,
       )
       ..close();
     marques.add(_Marque(goutte, _Encre.accent, 1.2));
@@ -604,14 +635,14 @@ class _Motif {
       ..addOval(Rect.fromCircle(center: centre, radius: rayon))
       ..addOval(Rect.fromCircle(center: centre, radius: rayon * 0.62));
     marques.add(_Marque(cercles, _Encre.trait, 1.0));
-    final point = Path()
-      ..addOval(Rect.fromCircle(center: centre, radius: 2.2));
+    final point = Path()..addOval(Rect.fromCircle(center: centre, radius: 2.2));
     marques.add(_Marque(point, _Encre.accent, 0, plein: true));
   }
 
   /// Boussole discrète : cercle, graduations, aiguille. Aucune lettre.
   static void _boussole(List<_Marque> marques, Offset centre, double rayon) {
-    final cercle = Path()..addOval(Rect.fromCircle(center: centre, radius: rayon));
+    final cercle = Path()
+      ..addOval(Rect.fromCircle(center: centre, radius: rayon));
     marques.add(_Marque(cercle, _Encre.trait, 1.0));
 
     final graduations = Path();
@@ -656,13 +687,13 @@ class _Motif {
       ..addOval(Rect.fromCircle(center: centre, radius: rayon))
       ..addOval(Rect.fromCircle(center: centre, radius: rayon * 0.55));
     marques.add(_Marque(cercles, _Encre.trait, 0.9));
-    final point = Path()
-      ..addOval(Rect.fromCircle(center: centre, radius: 1.6));
+    final point = Path()..addOval(Rect.fromCircle(center: centre, radius: 1.6));
     marques.add(_Marque(point, _Encre.trait, 0, plein: true));
   }
 
   /// Transforme un chemin en pointillés via [PathMetrics].
-  static Path _pointille(Path source, {required double tiret, required double espace}) {
+  static Path _pointille(Path source,
+      {required double tiret, required double espace}) {
     final dest = Path();
     for (final metric in source.computeMetrics()) {
       var distance = 0.0;

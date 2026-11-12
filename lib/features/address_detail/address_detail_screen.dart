@@ -16,9 +16,19 @@ import 'widgets/route_step_detail_sheet.dart';
 import 'widgets/route_step_form_sheet.dart';
 import 'widgets/share_link_sheet.dart';
 import 'widgets/trajet_widgets.dart';
+import '../../ui/app_background.dart';
 import '../../ui/app_feedback.dart';
 import '../../ui/app_states.dart';
 import '../../ui/status_chip.dart';
+
+/// Style compact des actions de la barre (favori, partage, édition, suppression).
+ButtonStyle get _detailActionStyle => IconButton.styleFrom(
+      visualDensity: VisualDensity.compact,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      minimumSize: const Size(36, 36),
+      padding: const EdgeInsets.all(6),
+      iconSize: 20,
+    );
 
 class AddressDetailScreen extends StatefulWidget {
   final String addressId;
@@ -110,24 +120,49 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
   Future<bool> _confirm(String title, String message) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        const compact = ButtonStyle(
+          minimumSize: WidgetStatePropertyAll(Size(0, 44)),
+          padding: WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.red,
-              backgroundColor: Colors.red.shade50,
+        );
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actionsPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: compact,
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: FilledButton(
+                    style: compact.copyWith(
+                      foregroundColor: WidgetStatePropertyAll(scheme.onError),
+                      backgroundColor: WidgetStatePropertyAll(scheme.error),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Supprimer'),
+                  ),
+                ),
+              ],
             ),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
     return confirmed ?? false;
   }
@@ -400,10 +435,13 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
     final isOwner = _isOwner;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(address.name),
+        actionsPadding: const EdgeInsets.only(right: AppSpacing.xxs),
         actions: [
           IconButton(
+            style: _detailActionStyle,
             icon: Icon(_isFavorite ? Icons.star : Icons.star_outline),
             tooltip:
                 _isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
@@ -412,12 +450,14 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           ),
           if (isOwner) ...[
             IconButton(
+              style: _detailActionStyle,
               icon: const Icon(Icons.share_outlined),
               tooltip: 'Partager',
               onPressed: () =>
                   showShareLinkSheet(context, addressId: address.id!),
             ),
             IconButton(
+              style: _detailActionStyle,
               icon: const Icon(Icons.edit),
               tooltip: 'Modifier',
               onPressed: () async {
@@ -427,10 +467,11 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               },
             ),
             IconButton(
+              style: _detailActionStyle,
               icon: _deleting
                   ? const SizedBox(
-                      height: 20,
-                      width: 20,
+                      height: 16,
+                      width: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.delete_outline),
@@ -440,217 +481,224 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
           ],
         ],
       ),
-      body: ListView(
-        padding: AppSpacing.list,
-        children: [
-          if (address.photoUrl != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                address.photoUrl!,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
+      body: AppBackground(
+        style: AppBackgroundStyle.releve,
+        child: ListView(
+          padding: AppSpacing.list,
+          children: [
+            if (address.photoUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  address.photoUrl!,
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  address.name,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  children: [
+                    AppStatusChip.visibility(address.visibility, dense: true),
+                    AppStatusChip.gpsType(address.gpsType, dense: true),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                address.name,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: AppSpacing.xs,
-                runSpacing: AppSpacing.xxs,
-                children: [
-                  AppStatusChip.visibility(address.visibility, dense: true),
-                  AppStatusChip.gpsType(address.gpsType, dense: true),
-                ],
-              ),
+            const SizedBox(height: AppSpacing.lg),
+            if (address.locality != null) ...[
+              Text('Localité', style: Theme.of(context).textTheme.titleSmall),
+              Text(address.locality!),
+              const SizedBox(height: AppSpacing.md),
             ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (address.locality != null) ...[
-            Text('Localité', style: Theme.of(context).textTheme.titleSmall),
-            Text(address.locality!),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          if (address.description != null) ...[
-            Text('Description', style: Theme.of(context).textTheme.titleSmall),
-            Text(address.description!),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          Text('Coordonnées GPS',
-              style: Theme.of(context).textTheme.titleSmall),
-          Text(
-              '${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Text('Trajet', style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              const ContextualHelpButton(
-                articleIds: [
-                  'difference-trajet',
-                  'itineraire',
-                  'guidage',
-                  'naviguer-google-maps',
-                  'limites-trajet',
-                ],
-                title: 'Aide sur le trajet',
-              ),
+            if (address.description != null) ...[
+              Text('Description',
+                  style: Theme.of(context).textTheme.titleSmall),
+              Text(address.description!),
+              const SizedBox(height: AppSpacing.md),
             ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          TrajetSection(
-            destination: LatLng(address.latitude, address.longitude),
-            nom: address.name,
-            landmarks: _landmarks,
-            markerIcon: address.gpsType == GpsType.exact
-                ? Icons.location_on
-                : Icons.flag,
-            onLandmarkTap: _openLandmarkDetail,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const Divider(),
-
-          // ---- Repères ----
-          Row(
-            children: [
-              Text('Repères', style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              const ContextualHelpButton(
-                articleIds: [
-                  'quest-ce-repere',
-                  'ajouter-repere',
-                  'bien-choisir-repere',
-                  'modifier-supprimer-repere',
-                ],
-                title: 'Aide sur les repères',
-              ),
-              if (isOwner)
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  tooltip: 'Ajouter un repère',
-                  onPressed: () async {
-                    final ok = await showLandmarkFormSheet(context,
-                        addressId: address.id!);
-                    if (ok == true) _loadAll();
-                  },
+            Text('Coordonnées GPS',
+                style: Theme.of(context).textTheme.titleSmall),
+            Text(
+                '${address.latitude.toStringAsFixed(6)}, ${address.longitude.toStringAsFixed(6)}'),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Text('Trajet', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                const ContextualHelpButton(
+                  articleIds: [
+                    'difference-trajet',
+                    'itineraire',
+                    'guidage',
+                    'naviguer-google-maps',
+                    'limites-trajet',
+                  ],
+                  title: 'Aide sur le trajet',
                 ),
-            ],
-          ),
-          if (_landmarks.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Aucun repère pour le moment.',
-                  style: TextStyle(color: Colors.grey)),
-            )
-          else
-            ..._landmarks.map(
-              (l) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                child: LandmarkCard(
-                  landmark: l,
-                  onTap: () => _openLandmarkDetail(l),
-                  trailing: isOwner
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: _busy ? null : () => _editLandmark(l),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20),
-                              onPressed:
-                                  _busy ? null : () => _deleteLandmark(l),
-                            ),
-                          ],
-                        )
-                      : null,
-                ),
-              ),
+              ],
             ),
+            const SizedBox(height: AppSpacing.xs),
+            TrajetSection(
+              destination: LatLng(address.latitude, address.longitude),
+              nom: address.name,
+              landmarks: _landmarks,
+              markerIcon: address.gpsType == GpsType.exact
+                  ? Icons.location_on
+                  : Icons.flag,
+              onLandmarkTap: _openLandmarkDetail,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            const Divider(),
 
-          const SizedBox(height: AppSpacing.md),
-          const Divider(),
-
-          // ---- Étapes ----
-          Row(
-            children: [
-              Text('Étapes du trajet',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              const ContextualHelpButton(
-                articleIds: [
-                  'ajouter-etape',
-                  'ordre-etapes',
-                  'bonne-description-etape',
-                  'modifier-supprimer-etape',
-                ],
-                title: 'Aide sur les étapes',
+            // ---- Repères ----
+            Row(
+              children: [
+                Text('Repères', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                const ContextualHelpButton(
+                  articleIds: [
+                    'quest-ce-repere',
+                    'ajouter-repere',
+                    'bien-choisir-repere',
+                    'modifier-supprimer-repere',
+                  ],
+                  title: 'Aide sur les repères',
+                ),
+                if (isOwner)
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Ajouter un repère',
+                    onPressed: () async {
+                      final ok = await showLandmarkFormSheet(context,
+                          addressId: address.id!);
+                      if (ok == true) _loadAll();
+                    },
+                  ),
+              ],
+            ),
+            if (_landmarks.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Aucun repère pour le moment.',
+                    style: TextStyle(color: Colors.grey)),
+              )
+            else
+              ..._landmarks.map(
+                (l) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: LandmarkCard(
+                    landmark: l,
+                    onTap: () => _openLandmarkDetail(l),
+                    trailing: isOwner
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 20),
+                                onPressed:
+                                    _busy ? null : () => _editLandmark(l),
+                              ),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.delete_outline, size: 20),
+                                onPressed:
+                                    _busy ? null : () => _deleteLandmark(l),
+                              ),
+                            ],
+                          )
+                        : null,
+                  ),
+                ),
               ),
-              if (isOwner)
-                IconButton(
-                  icon: const Icon(Icons.add_circle_outline),
-                  tooltip: 'Ajouter une étape',
-                  onPressed: () async {
-                    final ok = await showRouteStepFormSheet(
-                      context,
-                      addressId: address.id!,
-                      landmarks: _landmarks,
-                      nextStepOrder: _steps.length + 1,
-                    );
-                    if (ok == true) _loadAll();
-                  },
+
+            const SizedBox(height: AppSpacing.md),
+            const Divider(),
+
+            // ---- Étapes ----
+            Row(
+              children: [
+                Text('Étapes du trajet',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                const ContextualHelpButton(
+                  articleIds: [
+                    'ajouter-etape',
+                    'ordre-etapes',
+                    'bonne-description-etape',
+                    'modifier-supprimer-etape',
+                  ],
+                  title: 'Aide sur les étapes',
                 ),
-            ],
-          ),
-          if (_steps.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('Aucune étape pour le moment.',
-                  style: TextStyle(color: Colors.grey)),
-            )
-          else
-            ..._steps.map((s) {
-              final matches = _landmarks.where((l) => l.id == s.landmarkId);
-              final landmark = matches.isEmpty ? null : matches.first;
-              return Card(
-                child: ListTile(
-                  onTap: () => _openStepDetail(s),
-                  leading: CircleAvatar(child: Text('${s.stepOrder}')),
-                  title: Text(s.instruction),
-                  subtitle: Text([
-                    if (s.distance != null)
-                      '${s.distance!.toStringAsFixed(0)} m',
-                    if (s.direction != null) s.direction!,
-                    if (landmark != null) 'Repère : ${landmark.name}',
-                  ].join(' · ')),
-                  trailing: isOwner
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: _busy ? null : () => _editStep(s),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20),
-                              onPressed: _busy ? null : () => _deleteStep(s),
-                            ),
-                          ],
-                        )
-                      : const Icon(Icons.chevron_right),
-                ),
-              );
-            }),
-        ],
+                if (isOwner)
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Ajouter une étape',
+                    onPressed: () async {
+                      final ok = await showRouteStepFormSheet(
+                        context,
+                        addressId: address.id!,
+                        landmarks: _landmarks,
+                        nextStepOrder: _steps.length + 1,
+                      );
+                      if (ok == true) _loadAll();
+                    },
+                  ),
+              ],
+            ),
+            if (_steps.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Aucune étape pour le moment.',
+                    style: TextStyle(color: Colors.grey)),
+              )
+            else
+              ..._steps.map((s) {
+                final matches = _landmarks.where((l) => l.id == s.landmarkId);
+                final landmark = matches.isEmpty ? null : matches.first;
+                return Card(
+                  child: ListTile(
+                    onTap: () => _openStepDetail(s),
+                    leading: CircleAvatar(child: Text('${s.stepOrder}')),
+                    title: Text(s.instruction),
+                    subtitle: Text([
+                      if (s.distance != null)
+                        '${s.distance!.toStringAsFixed(0)} m',
+                      if (s.direction != null) s.direction!,
+                      if (landmark != null) 'Repère : ${landmark.name}',
+                    ].join(' · ')),
+                    trailing: isOwner
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, size: 20),
+                                onPressed: _busy ? null : () => _editStep(s),
+                              ),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.delete_outline, size: 20),
+                                onPressed: _busy ? null : () => _deleteStep(s),
+                              ),
+                            ],
+                          )
+                        : const Icon(Icons.chevron_right),
+                  ),
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
