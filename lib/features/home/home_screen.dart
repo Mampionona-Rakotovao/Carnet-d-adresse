@@ -68,9 +68,11 @@ class _HomeScreenState extends State<HomeScreen> {
           actionsAlignment: MainAxisAlignment.center,
           actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           actions: [
-            Row(
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
+                SizedBox(
+                  width: double.infinity,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: scheme.error,
@@ -81,8 +83,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const Text('Déconnexion'),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
