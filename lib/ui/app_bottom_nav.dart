@@ -277,7 +277,13 @@ class _AppBottomNavState extends State<AppBottomNav>
                               children: [
                                 for (var i = 0; i < nbOnglets; i++)
                                   Expanded(
-                                    child: _onglet(i, fondu, geo, theme),
+                                    child: _onglet(
+                                      i,
+                                      fondu,
+                                      geo,
+                                      theme,
+                                      largeurOnglet,
+                                    ),
                                   ),
                               ],
                             ),
@@ -303,7 +309,13 @@ class _AppBottomNavState extends State<AppBottomNav>
 
   /// Une cellule d'onglet : icône + libellé, zone tactile de toute la
   /// hauteur de la barre.
-  Widget _onglet(int i, double fondu, _Geo geo, ThemeData theme) {
+  Widget _onglet(
+    int i,
+    double fondu,
+    _Geo geo,
+    ThemeData theme,
+    double largeurOnglet,
+  ) {
     final item = widget.items[i];
     final scheme = theme.colorScheme;
     final cible = _vers.round();
@@ -321,14 +333,17 @@ class _AppBottomNavState extends State<AppBottomNav>
     }
 
     // Le libellé passe en gras et en couleur forte sur l'onglet actif.
+    // À 4 onglets sur petit écran, on réduit légèrement la police pour
+    // éviter toute coupure disgracieuse.
+    final fontSize = largeurOnglet < 76 ? 11.0 : 12.0;
     final TextStyle styleInactif = TextStyle(
-      fontSize: 12,
+      fontSize: fontSize,
       height: 1.2,
       fontWeight: FontWeight.w500,
       color: scheme.onSurfaceVariant,
     );
     final TextStyle styleActif = TextStyle(
-      fontSize: 12,
+      fontSize: fontSize,
       height: 1.2,
       fontWeight: FontWeight.w700,
       color: scheme.onSurface,

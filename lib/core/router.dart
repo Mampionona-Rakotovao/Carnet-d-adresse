@@ -8,6 +8,7 @@ import '../features/auth/confirm_email_screen.dart';
 import '../features/auth/reset_code_screen.dart';
 import '../features/auth/reset_password_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/welcome/welcome_screen.dart';
 import '../features/address_create/address_form_screen.dart';
 import '../features/address_create/step_wizard_screen.dart';
 import '../features/address_detail/address_detail_screen.dart';
@@ -147,7 +148,7 @@ GoRouter _buildRouter() {
       if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
         final pending = _pendingSharedLocation;
         _pendingSharedLocation = null;
-        return pending ?? '/';
+        return pending ?? '/bienvenue';
       }
       return null;
     },
@@ -190,6 +191,13 @@ GoRouter _buildRouter() {
         // Onglets racine. « Ouvrir un lien » en fait partie : l'utilisateur
         // doit pouvoir changer d'onglet sans repasser par l'accueil.
         routes: [
+          GoRoute(
+            path: '/bienvenue',
+            pageBuilder: (context, state) => appPage(
+              key: state.pageKey,
+              child: const WelcomeScreen(),
+            ),
+          ),
           GoRoute(
             path: '/',
             pageBuilder: (context, state) => appPage(
