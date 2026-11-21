@@ -69,11 +69,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('« Ouvrir l’accueil » sélectionne l’onglet Accueil sans planter',
+  testWidgets('« Ouvrir Mes adresses » ouvre l’onglet Adresses sans planter',
       (tester) async {
     await _openArticle(tester, 'accueil');
 
-    await tester.tap(find.text('Ouvrir l\'accueil'));
+    await tester.tap(find.text('Ouvrir Mes adresses'));
     await tester.pumpAndSettle();
 
     expect(find.text('accueil'), findsOneWidget);
@@ -83,7 +83,7 @@ void main() {
   testWidgets('les actions vers les onglets utilisent une route valide',
       (tester) async {
     const cases = {
-      'accueil': ('Ouvrir l\'accueil', 'accueil'),
+      'accueil': ('Ouvrir Mes adresses', 'accueil'),
       'ajouter-favoris': ('Ouvrir les favoris', 'favoris'),
       'rechercher-adresse': ('Ouvrir la recherche', 'recherche'),
     };

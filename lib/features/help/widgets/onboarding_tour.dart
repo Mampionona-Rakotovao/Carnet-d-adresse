@@ -59,7 +59,7 @@ const List<_OnboardingPage> _pages = [
     icon: Icons.help_outline,
     title: 'Besoin d’aide ?',
     description:
-        'Le menu ⋮ de l’accueil donne accès au centre d’aide, à la recherche et au support. Vous pouvez revoir cette visite à tout moment.',
+        'Le menu ⋮ de l’écran Adresses donne accès au centre d’aide, à la recherche et au support. Vous pouvez revoir cette visite à tout moment.',
   ),
 ];
 

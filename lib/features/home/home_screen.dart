@@ -270,11 +270,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Bienvenue !',
-                            style: theme.textTheme.headlineSmall),
+                        Text(
+                          'Vos lieux importants',
+                          style: theme.textTheme.headlineSmall,
+                        ),
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
-                          'Retrouvez facilement vos lieux importants',
+                          'Retrouvez facilement vos adresses enregistrées.',
                           style: theme.textTheme.bodyMedium
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),

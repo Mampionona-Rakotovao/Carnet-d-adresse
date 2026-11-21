@@ -36,7 +36,7 @@ const List<HelpArticle> helpArticles = [
       'Créez un compte ou connectez-vous.',
       'Ajoutez une adresse avec son nom, sa localité et sa position GPS.',
       'Ajoutez une photo, des repères et des étapes pour décrire le chemin.',
-      'Retrouvez vos adresses dans Accueil, Recherche et Favoris.',
+      'Retrouvez vos adresses depuis les onglets Bienvenue, Adresses, Recherche et Favoris.',
       'Partagez une adresse avec un lien temporaire.',
     ],
     astuces: [
@@ -161,9 +161,11 @@ const List<HelpArticle> helpArticles = [
   HelpArticle(
     id: 'accueil',
     categorie: HelpCategory.demarrer,
-    titre: 'Vue d\'ensemble de l\'écran d\'accueil',
+    titre: 'Vue d\'ensemble de l\'écran Adresses',
     motsCles: [
       'accueil',
+      'adresses',
+      'mes adresses',
       'menu',
       'navigation',
       'liste',
@@ -174,10 +176,10 @@ const List<HelpArticle> helpArticles = [
       'deconnexion',
     ],
     resume:
-        'L\'accueil regroupe vos adresses récentes, le menu principal et les onglets de navigation.',
+        'L\'écran Adresses regroupe vos adresses récentes, le menu principal et l\'accès aux actions courantes.',
     etapes: [
-      'La barre du bas propose « Accueil », « Recherche » et « Favoris ».',
-      'Sur l\'accueil, la liste « Adresses récentes » montre vos adresses.',
+      'La barre du bas propose « Bienvenue », « Adresses », « Recherche » et « Favoris ».',
+      'Sur l\'écran Adresses, la liste « Adresses récentes » montre vos adresses.',
       'Le menu ⋮ en haut à droite propose « Apparence », « Ajouter une adresse », « Partagées avec moi », « Aide » et « Se déconnecter ».',
       'Appuyez sur une adresse pour ouvrir sa fiche complète.',
     ],
@@ -186,13 +188,45 @@ const List<HelpArticle> helpArticles = [
       'La ligne « Partagées avec moi » affiche les adresses reçues par lien et encore valides.',
     ],
     articlesLies: [
+      'bienvenue',
       'presentation',
       'creer-adresse',
       'apparence',
       'partagees-avec-moi'
     ],
-    openLabel: 'Ouvrir l\'accueil',
+    openLabel: 'Ouvrir Mes adresses',
     openRoute: '/',
+  ),
+  HelpArticle(
+    id: 'bienvenue',
+    categorie: HelpCategory.demarrer,
+    titre: 'Découvrir la page Bienvenue',
+    motsCles: [
+      'bienvenue',
+      'accueil',
+      'tableau de bord',
+      'résumé',
+      'resume',
+      'actions rapides',
+      'astuce',
+      'récentes',
+      'recentes',
+    ],
+    resume:
+        'La page Bienvenue vous donne un aperçu rapide de votre carnet et des raccourcis utiles.',
+    etapes: [
+      'Ouvrez l\'onglet « Bienvenue » dans la barre du bas.',
+      'Consultez le résumé de vos adresses et de vos favoris.',
+      'Utilisez les actions rapides pour ajouter, rechercher ou ouvrir l\'aide.',
+      'Retrouvez vos adresses récentes et l\'astuce du jour.',
+    ],
+    astuces: [
+      'La page Bienvenue s\'ouvre après votre connexion pour vous aider à reprendre rapidement.',
+      'Vous pouvez revoir le tour de bienvenue depuis le bas de la page.',
+    ],
+    articlesLies: ['accueil', 'creer-adresse', 'rechercher-adresse'],
+    openLabel: 'Ouvrir Bienvenue',
+    openRoute: '/bienvenue',
   ),
   HelpArticle(
     id: 'apparence',

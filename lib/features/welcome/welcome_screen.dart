@@ -236,10 +236,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 ? AppErrorState(error: _error, onRetry: () => _load())
                 : RefreshIndicator(
                     onRefresh: _refresh,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: AppSpacing.list.copyWith(bottom: bottomPadding),
-                      children: _buildContent(context, data),
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey(data != null),
+                      tween: Tween(begin: 0, end: 1),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                      builder: (context, value, child) => Opacity(
+                        opacity: value,
+                        child: child,
+                      ),
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding:
+                            AppSpacing.list.copyWith(bottom: bottomPadding),
+                        children: _buildContent(context, data),
+                      ),
                     ),
                   ),
       ),

@@ -105,6 +105,54 @@ void clearPasswordRecoveryFlag() => _isPasswordRecovery = false;
 /// émis pendant `Supabase.initialize()`, donc avant que le routeur n'écoute.
 void markPasswordRecovery() => _isPasswordRecovery = true;
 
+/// Helpers de test : permettent de vérifier la logique de redirection sans
+/// dépendre d'une session Supabase réelle.
+void setPendingSharedLocationForTest(String? value) {
+  _pendingSharedLocation = value;
+}
+
+String? get pendingSharedLocationForTest => _pendingSharedLocation;
+
+bool get isPasswordRecoveryForTest => _isPasswordRecovery;
+
+/// Calcule la redirection du routeur. Pur vis-à-vis du routeur, mais lit les
+/// drapeaux globaux de récupération de mot de passe et de lien partagé en attente.
+String? computeRedirect({
+  required bool loggedIn,
+  required String matchedLocation,
+  required String uriString,
+}) {
+  final onLoginPage = matchedLocation == '/login';
+  final onResetPage = matchedLocation == '/reset-password';
+  final onResetCodePage = matchedLocation == '/reset-code';
+  final onConfirmPage = matchedLocation == '/confirm-email';
+  final onSharedLink = matchedLocation.startsWith('/a/');
+
+  // Une fois le mot de passe en cours de réinitialisation (code validé ou
+  // lien ouvert), on force l'écran de saisie du nouveau mot de passe.
+  if (_isPasswordRecovery) {
+    return onResetPage ? null : '/reset-password';
+  }
+
+  // Un lien partagé exige un compte : on mémorise la destination pour
+  // rouvrir le lien après la connexion.
+  if (!loggedIn && onSharedLink) {
+    _pendingSharedLocation = uriString;
+    return '/login';
+  }
+
+  if (!loggedIn && !onLoginPage && !onConfirmPage && !onResetCodePage) {
+    return '/login';
+  }
+
+  if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
+    final pending = _pendingSharedLocation;
+    _pendingSharedLocation = null;
+    return pending ?? '/bienvenue';
+  }
+  return null;
+}
+
 void _listenForPasswordRecovery() {
   supabase.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
@@ -122,35 +170,11 @@ GoRouter _buildRouter() {
     refreshListenable: GoRouterRefreshStream(supabase.auth.onAuthStateChange),
     redirect: (context, state) {
       final loggedIn = supabase.auth.currentSession != null;
-      final onLoginPage = state.matchedLocation == '/login';
-      final onResetPage = state.matchedLocation == '/reset-password';
-      final onResetCodePage = state.matchedLocation == '/reset-code';
-      final onConfirmPage = state.matchedLocation == '/confirm-email';
-      final onSharedLink = state.matchedLocation.startsWith('/a/');
-
-      // Une fois le mot de passe en cours de réinitialisation (code validé ou
-      // lien ouvert), on force l'écran de saisie du nouveau mot de passe.
-      if (_isPasswordRecovery) {
-        return onResetPage ? null : '/reset-password';
-      }
-
-      // Un lien partagé exige un compte : on mémorise la destination pour
-      // rouvrir le lien après la connexion.
-      if (!loggedIn && onSharedLink) {
-        _pendingSharedLocation = state.uri.toString();
-        return '/login';
-      }
-
-      if (!loggedIn && !onLoginPage && !onConfirmPage && !onResetCodePage) {
-        return '/login';
-      }
-
-      if (loggedIn && (onLoginPage || onConfirmPage || onResetCodePage)) {
-        final pending = _pendingSharedLocation;
-        _pendingSharedLocation = null;
-        return pending ?? '/bienvenue';
-      }
-      return null;
+      return computeRedirect(
+        loggedIn: loggedIn,
+        matchedLocation: state.matchedLocation,
+        uriString: state.uri.toString(),
+      );
     },
     errorBuilder: (context, state) => const NotFoundPage(),
     routes: [
