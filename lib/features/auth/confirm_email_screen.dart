@@ -35,7 +35,7 @@ class _ConfirmEmailScreenState extends State<ConfirmEmailScreen> {
         email: widget.email,
         token: code,
       );
-      // Succès : une session est créée, go_router redirige seul vers l'accueil.
+      // Succès : une session est créée, go_router redirige seul vers Bienvenue.
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {

@@ -44,7 +44,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       clearPasswordRecoveryFlag();
       if (!mounted) return;
       AppSnack.success(context, 'Mot de passe mis à jour.');
-      context.go('/');
+      context.go('/bienvenue');
     } catch (e) {
       if (mounted) AppSnack.error(context, e);
     } finally {
