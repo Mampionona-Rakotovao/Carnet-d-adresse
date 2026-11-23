@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/address_refresh.dart';
+import '../../core/favorites.dart';
 import '../../core/onboarding.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/theme_mode_controller.dart';
 import '../../models/address.dart';
+import '../../ui/address_actions_menu.dart';
 import '../../ui/address_list_card.dart';
 import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
@@ -22,6 +25,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final Stream<List<Map<String, dynamic>>> _addressesStream;
   final Set<String> _deletedAddressIds = {};
+  Set<String> _favoriteIds = <String>{};
 
   @override
   void initState() {
@@ -34,7 +38,54 @@ class _HomeScreenState extends State<HomeScreen> {
             .stream(primaryKey: ['id'])
             .eq('owner_id', userId)
             .order('created_at', ascending: false);
+    _loadFavoriteIds();
+    addressDataRevision.addListener(_onDataChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowOnboarding());
+  }
+
+  @override
+  void dispose() {
+    addressDataRevision.removeListener(_onDataChanged);
+    super.dispose();
+  }
+
+  /// Le flux Realtime couvre les adresses ; les favoris et les liens sont
+  /// rechargés quand une action est faite depuis l'autre onglet.
+  void _onDataChanged() {
+    if (!mounted) return;
+    _loadFavoriteIds();
+  }
+
+  Future<void> _loadFavoriteIds() async {
+    try {
+      final ids = await favoriteAddressIds();
+      if (!mounted) return;
+      setState(() => _favoriteIds = ids.toSet());
+    } catch (e) {
+      debugPrint('HomeScreen._loadFavoriteIds → $e');
+    }
+  }
+
+  void _setFavoriteLocally(String? addressId, bool favorite) {
+    if (addressId == null || !mounted) return;
+    setState(() {
+      final updated = Set<String>.from(_favoriteIds);
+      if (favorite) {
+        updated.add(addressId);
+      } else {
+        updated.remove(addressId);
+      }
+      _favoriteIds = updated;
+    });
+  }
+
+  void _removeAddressLocally(Address address) {
+    final id = address.id;
+    if (id == null || !mounted) return;
+    setState(() {
+      _deletedAddressIds.add(id);
+      _favoriteIds.remove(id);
+    });
   }
 
   Future<void> _maybeShowOnboarding() async {
@@ -302,6 +353,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: AddressListCard(
                           address: a,
                           onTap: () => _openAddress(a),
+                          actions: AddressActionsMenu(
+                            address: a,
+                            isFavorite: _favoriteIds.contains(a.id),
+                            onFavoriteChanged: (value) =>
+                                _setFavoriteLocally(a.id, value),
+                            onDeleted: _removeAddressLocally,
+                          ),
                         ),
                       );
                     }),

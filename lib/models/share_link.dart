@@ -154,12 +154,26 @@ class ShareLink {
         revokedAt: revokedAt,
       );
 
+  /// Révoqué : état explicite en base ou date de révocation renseignée.
+  bool get isRevoked =>
+      status == ShareLinkStatus.revoked || revokedAt != null;
+
   bool get isExpired =>
       status == ShareLinkStatus.expired ||
       (expiresAt != null && !expiresAt!.isAfter(DateTime.now()));
 
   bool get isFull => maxUses != null && usedCount >= maxUses!;
 
-  bool get isEffectivelyActive =>
-      status == ShareLinkStatus.active && !isExpired && !isFull;
+  /// Règle unique d'éligibilité d'un lien : ni révoqué, ni expiré, ni complet.
+  /// Utilisée à la fois par le panneau de gestion des liens et par la page
+  /// Bienvenue pour afficher les mêmes chiffres.
+  bool get isEffectivelyActive => !isRevoked && !isExpired && !isFull;
+
+  /// Libellé d'état partagé, avec la même priorité que l'état effectif.
+  String get statusLabel {
+    if (isRevoked) return 'Révoqué';
+    if (isExpired) return 'Expiré';
+    if (isFull) return 'Complet';
+    return 'Actif';
+  }
 }

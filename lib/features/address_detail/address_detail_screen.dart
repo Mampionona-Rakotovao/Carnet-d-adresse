@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import '../../core/address_actions.dart';
+import '../../core/address_refresh.dart';
 import '../../core/favorites.dart';
 import '../../core/photo_storage.dart';
 import '../../core/supabase_client.dart';
@@ -177,41 +179,15 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
 
   Future<void> _deleteAddress() async {
     final address = _address;
-    final addressId = address?.id;
-    if (address == null || addressId == null || _deleting) return;
+    if (address == null || address.id == null || _deleting) return;
 
-    if (!await _confirm(
-      'Supprimer cette adresse ?',
-      'Cette action est irréversible : "${address.name}" et toutes ses '
-          'données associées (repères, étapes, favoris, liens de partage) '
-          'seront supprimés.',
-    )) {
-      return;
-    }
+    // Même confirmation et même suppression que le menu « ⋮ » des cartes.
+    if (!await confirmAddressDeletion(context, address)) return;
     if (!mounted) return;
 
     setState(() => _deleting = true);
     try {
-      final deleted = await supabase
-          .from('addresses')
-          .delete()
-          .eq('id', addressId)
-          .select();
-
-      if ((deleted as List).isEmpty) {
-        if (!mounted) return;
-        AppSnack.error(
-          context,
-          Exception('delete address returned no row'),
-          fallback: "Suppression impossible : l'adresse n'a pas été supprimée. "
-              'Vérifiez vos droits puis réessayez.',
-        );
-        return;
-      }
-
-      await removePhotoFolder(addressId);
-      if (!mounted) return;
-      _leaveDeleted();
+      await deleteAddressRow(address);
     } catch (e) {
       if (!mounted) return;
       AppSnack.error(
@@ -220,9 +196,14 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
         fallback:
             "Suppression impossible. Vérifiez votre connexion et réessayez.",
       );
+      return;
     } finally {
       if (mounted) setState(() => _deleting = false);
     }
+    if (!mounted) return;
+
+    notifyAddressDataChanged();
+    _leaveDeleted();
   }
 
   Future<void> _editLandmark(Landmark l) async {
@@ -399,7 +380,10 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
       if (!mounted) return;
       setState(() => _isFavorite = previous);
       AppSnack.error(context, e);
+      return;
     }
+    if (!mounted) return;
+    notifyAddressDataChanged();
   }
 
   @override
@@ -463,6 +447,8 @@ class _AddressDetailScreenState extends State<AddressDetailScreen> {
               onPressed: () async {
                 await context.push<bool>('/address/${address.id}/edit',
                     extra: address);
+                if (!mounted) return;
+                notifyAddressDataChanged();
                 _loadAll();
               },
             ),

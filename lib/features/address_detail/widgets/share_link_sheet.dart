@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../core/share_links.dart';
 import '../../../core/supabase_client.dart';
 import '../../../models/share_link.dart';
 import '../../../ui/app_feedback.dart';
@@ -64,37 +65,20 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
   Future<void> _loadLinks() async {
     setState(() => _loadingLinks = true);
     try {
-      final rows = await supabase
-          .from('share_links')
-          .select()
-          .eq('address_id', widget.addressId)
-          .order('created_at', ascending: false);
-
-      final links = (rows as List).map((r) => ShareLink.fromJson(r)).toList();
-
-      final counts = <String, int>{};
-      if (links.isNotEmpty) {
-        final ids = links.map((l) => l.id).toList();
-        final redemptions = await supabase
-            .from('share_link_redemptions')
-            .select('share_link_id')
-            .inFilter('share_link_id', ids);
-        for (final raw in redemptions as List) {
-          final row = raw as Map<String, dynamic>;
-          final linkId = row['share_link_id'] as String?;
-          if (linkId != null) counts[linkId] = (counts[linkId] ?? 0) + 1;
-        }
-      }
+      // Même chargeur que la page Bienvenue : un seul calcul des utilisations
+      // et un seul critère de lien actif pour tout l'application.
+      final links = await fetchShareLinksWithUsage(
+        column: 'address_id',
+        value: widget.addressId,
+      );
 
       if (!mounted) return;
-      setState(() {
-        _links = links
-            .map((link) => link.copyWith(usedCount: counts[link.id] ?? 0))
-            .toList();
-      });
+      setState(() => _links = links);
     } catch (e) {
+      debugPrint('ShareLinkSheet._loadLinks → $e');
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error =
+          friendlyErrorMessage(e, fallback: 'Impossible de charger les liens.'));
     } finally {
       if (mounted) setState(() => _loadingLinks = false);
     }
@@ -134,7 +118,10 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
         await _shareToken(link.token);
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      debugPrint('ShareLinkSheet._createLink → $e');
+      if (!mounted) return;
+      setState(() => _error =
+          friendlyErrorMessage(e, fallback: 'Création du lien impossible. Réessayez.'));
     } finally {
       if (mounted) setState(() => _creating = false);
     }
@@ -251,7 +238,10 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                 );
               }
               if (snapshot.hasError) {
-                return Text('Erreur : ${snapshot.error}');
+                return Text(friendlyErrorMessage(
+                  snapshot.error!,
+                  fallback: 'Impossible de charger l’historique.',
+                ));
               }
               final uses = snapshot.data ?? [];
               if (uses.isEmpty) {
@@ -308,15 +298,8 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
-  String _statusLabel(ShareLink l) {
-    if (l.status == ShareLinkStatus.revoked) return 'Révoqué';
-    if (l.isExpired) return 'Expiré';
-    if (l.isFull) return 'Complet';
-    return 'Actif';
-  }
-
   Color _statusColor(BuildContext context, ShareLink l) {
-    if (l.status == ShareLinkStatus.revoked) return Colors.grey;
+    if (l.isRevoked) return Colors.grey;
     if (l.isExpired) return Theme.of(context).colorScheme.error;
     if (l.isFull) return Colors.orange;
     return Colors.green;
@@ -440,7 +423,7 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
                                         color: _statusColor(context, l),
                                         size: 18),
                                   ),
-                                  title: Text(_statusLabel(l)),
+                                  title: Text(l.statusLabel),
                                   subtitle: Text(
                                     'Code : ${l.token.substring(0, 8)}...\n'
                                     '${_usesLabel(l)} · ${_expiryLabel(l)}',

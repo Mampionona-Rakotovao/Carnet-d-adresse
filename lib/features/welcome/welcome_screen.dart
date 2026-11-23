@@ -1,33 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/address_refresh.dart';
 import '../../core/favorites.dart';
 import '../../core/onboarding.dart';
+import '../../core/share_links.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/address.dart';
+import '../../ui/address_actions_menu.dart';
 import '../../ui/address_list_card.dart';
 import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_button.dart';
-import '../../ui/app_states.dart';
 import '../../ui/section.dart';
 import '../help/widgets/onboarding_tour.dart';
 
+/// Cache des blocs, conservé d'un onglet à l'autre (le routeur recrée l'écran).
+/// Il est vidé quand l'utilisateur connecté change.
 class _WelcomeCache {
-  static _WelcomeData? data;
+  static String? _userId;
+  static List<Address>? addresses;
+  static Set<String>? favoriteIds;
+  static int? activeShareLinks;
+
+  static void prepare(String? userId) {
+    if (_userId == userId) return;
+    addresses = null;
+    favoriteIds = null;
+    activeShareLinks = null;
+    _userId = userId;
+  }
 }
 
-class _WelcomeData {
-  const _WelcomeData({
-    required this.addresses,
-    required this.favoriteCount,
-    required this.activeShareLinks,
-  });
+/// État indépendant d'un bloc de la page : chaque bloc charge, réussit ou
+/// échoue sans entraîner la disparition des autres.
+class _AsyncBlock<T> {
+  const _AsyncBlock({this.data, this.error, this.loading = false});
 
-  final List<Address> addresses;
-  final int favoriteCount;
-  final int activeShareLinks;
+  final T? data;
+  final Object? error;
+  final bool loading;
 }
 
 class _Tip {
@@ -89,19 +102,46 @@ class WelcomeScreen extends StatefulWidget {
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  bool _loading = false;
-  String? _error;
-  _WelcomeData? _data;
+  _AsyncBlock<List<Address>> _addresses = const _AsyncBlock(loading: true);
+  _AsyncBlock<Set<String>> _favorites = const _AsyncBlock(loading: true);
+  _AsyncBlock<int> _shareLinks = const _AsyncBlock(loading: true);
 
   @override
   void initState() {
     super.initState();
-    _data = _WelcomeCache.data;
-    _loading = _data == null;
+    final userId = supabase.auth.currentUser?.id;
+    _WelcomeCache.prepare(userId);
+    _addresses = _AsyncBlock(
+      data: _WelcomeCache.addresses,
+      loading: _WelcomeCache.addresses == null,
+    );
+    _favorites = _AsyncBlock(
+      data: _WelcomeCache.favoriteIds,
+      loading: _WelcomeCache.favoriteIds == null,
+    );
+    _shareLinks = _AsyncBlock(
+      data: _WelcomeCache.activeShareLinks,
+      loading: _WelcomeCache.activeShareLinks == null,
+    );
+
+    // Une action faite depuis une carte (favori, partage, suppression…) met
+    // aussi à jour cette page, même si l'onglet Adresses était ouvert.
+    addressDataRevision.addListener(_onDataChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeShowOnboarding();
-      _load(refresh: _data != null);
+      _load();
     });
+  }
+
+  @override
+  void dispose() {
+    addressDataRevision.removeListener(_onDataChanged);
+    super.dispose();
+  }
+
+  void _onDataChanged() {
+    if (!mounted) return;
+    _load(refresh: true);
   }
 
   Future<void> _maybeShowOnboarding() async {
@@ -111,82 +151,106 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     await showOnboardingTour(context);
   }
 
-  Future<void> _load({bool refresh = false}) async {
-    if (!refresh) {
-      setState(() {
-        _loading = _data == null;
-        _error = null;
-      });
-    }
+  /// Trois chargements indépendants : un échec n'affecte que son bloc.
+  Future<void> _load({bool refresh = false}) => Future.wait<void>([
+        _loadAddresses(refresh: refresh),
+        _loadFavorites(refresh: refresh),
+        _loadShareLinks(refresh: refresh),
+      ]);
 
+  Future<void> _loadAddresses({bool refresh = false}) async {
+    if (!mounted) return;
+    if (refresh || _addresses.data == null) {
+      setState(() => _addresses =
+          _AsyncBlock(data: _addresses.data, loading: true));
+    }
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
         if (!mounted) return;
-        setState(() {
-          _loading = false;
-          _data = const _WelcomeData(
-            addresses: [],
-            favoriteCount: 0,
-            activeShareLinks: 0,
-          );
-        });
+        setState(() => _addresses = const _AsyncBlock(data: <Address>[]));
         return;
       }
 
-      final results = await Future.wait<Object?>([
-        supabase
-            .from('addresses')
-            .select()
-            .eq('owner_id', userId)
-            .order('created_at', ascending: false),
-        favoriteAddressIds(),
-        supabase
-            .from('share_links')
-            .select('id, status, expires_at, max_uses, used_count')
-            .eq('created_by', userId)
-            .eq('status', 'ACTIVE'),
-      ]);
-
-      final addressRows = (results[0] as List).cast<Map<String, dynamic>>();
-      final addresses = addressRows.map(Address.fromJson).toList();
-      final favoriteCount = (results[1] as List<String>).length;
-
-      final shareRows = (results[2] as List).cast<Map<String, dynamic>>();
-      var activeShareLinks = 0;
-      for (final row in shareRows) {
-        final expiresAt = row['expires_at'] != null
-            ? DateTime.tryParse(row['expires_at'] as String)
-            : null;
-        final maxUses = (row['max_uses'] as num?)?.toInt();
-        final usedCount = (row['used_count'] as num?)?.toInt() ?? 0;
-        final expired = expiresAt != null && !expiresAt.isAfter(DateTime.now());
-        final full = maxUses != null && usedCount >= maxUses;
-        if (!expired && !full) activeShareLinks++;
-      }
-
-      final data = _WelcomeData(
-        addresses: addresses,
-        favoriteCount: favoriteCount,
-        activeShareLinks: activeShareLinks,
-      );
-      _WelcomeCache.data = data;
-
+      final rows = await supabase
+          .from('addresses')
+          .select()
+          .eq('owner_id', userId)
+          .order('created_at', ascending: false);
       if (!mounted) return;
-      setState(() {
-        _data = data;
-        _loading = false;
-        _error = null;
-      });
+
+      final addresses = (rows as List)
+          .cast<Map<String, dynamic>>()
+          .map(Address.fromJson)
+          .toList();
+      _WelcomeCache.addresses = addresses;
+      if (!mounted) return;
+      setState(() => _addresses = _AsyncBlock(data: addresses));
     } catch (e) {
+      debugPrint('WelcomeScreen._loadAddresses → $e');
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        if (_data == null) _error = e.toString();
-      });
-      if (_data != null) {
-        // Contenu déjà affiché : on garde l'existant, pas d'erreur bloquante.
+      setState(() =>
+          _addresses = _AsyncBlock(data: _addresses.data, error: e));
+    }
+  }
+
+  Future<void> _loadFavorites({bool refresh = false}) async {
+    if (!mounted) return;
+    if (refresh || _favorites.data == null) {
+      setState(
+          () => _favorites = _AsyncBlock(data: _favorites.data, loading: true));
+    }
+    try {
+      if (supabase.auth.currentUser?.id == null) {
+        if (!mounted) return;
+        setState(() => _favorites = const _AsyncBlock(data: <String>{}));
+        return;
       }
+
+      final ids = await favoriteAddressIds();
+      if (!mounted) return;
+
+      final favoriteIds = ids.toSet();
+      _WelcomeCache.favoriteIds = favoriteIds;
+      if (!mounted) return;
+      setState(() => _favorites = _AsyncBlock(data: favoriteIds));
+    } catch (e) {
+      debugPrint('WelcomeScreen._loadFavorites → $e');
+      if (!mounted) return;
+      setState(() => _favorites = _AsyncBlock(data: _favorites.data, error: e));
+    }
+  }
+
+  Future<void> _loadShareLinks({bool refresh = false}) async {
+    if (!mounted) return;
+    if (refresh || _shareLinks.data == null) {
+      setState(() => _shareLinks =
+          _AsyncBlock(data: _shareLinks.data, loading: true));
+    }
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) {
+        if (!mounted) return;
+        setState(() => _shareLinks = const _AsyncBlock(data: 0));
+        return;
+      }
+
+      // Même chargeur et même règle « actif » que le panneau de gestion :
+      // plus aucun select() sur une colonne used_count inexistante.
+      final links = await fetchShareLinksWithUsage(
+        column: 'created_by',
+        value: userId,
+      );
+      if (!mounted) return;
+
+      final activeCount = links.where((link) => link.isEffectivelyActive).length;
+      _WelcomeCache.activeShareLinks = activeCount;
+      if (!mounted) return;
+      setState(() => _shareLinks = _AsyncBlock(data: activeCount));
+    } catch (e) {
+      debugPrint('WelcomeScreen._loadShareLinks → $e');
+      if (!mounted) return;
+      setState(() => _shareLinks = _AsyncBlock(data: _shareLinks.data, error: e));
     }
   }
 
@@ -219,9 +283,40 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (mounted) await _refresh();
   }
 
+  void _setFavoriteLocally(String? addressId, bool favorite) {
+    if (addressId == null || !mounted) return;
+    setState(() {
+      final updated = Set<String>.from(_favorites.data ?? const <String>{});
+      if (favorite) {
+        updated.add(addressId);
+      } else {
+        updated.remove(addressId);
+      }
+      _favorites = _AsyncBlock(data: updated);
+      _WelcomeCache.favoriteIds = updated;
+    });
+  }
+
+  void _removeAddressLocally(Address address) {
+    if (!mounted) return;
+    setState(() {
+      final updated = (_addresses.data ?? const <Address>[])
+          .where((item) => item.id != address.id)
+          .toList();
+      _addresses = _AsyncBlock(data: updated);
+      _WelcomeCache.addresses = updated;
+
+      if (address.id != null) {
+        final favorites = Set<String>.from(_favorites.data ?? const <String>{});
+        favorites.remove(address.id);
+        _favorites = _AsyncBlock(data: favorites);
+        _WelcomeCache.favoriteIds = favorites;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final data = _data;
     final bottomPadding =
         AppBottomNav.hauteurTotale(context) + AppSpacing.md;
 
@@ -230,39 +325,34 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       appBar: AppBar(title: const Text('Bienvenue')),
       body: AppBackground(
         style: AppBackgroundStyle.releve,
-        child: _loading && data == null
-            ? const AppLoading()
-            : _error != null && data == null
-                ? AppErrorState(error: _error, onRetry: () => _load())
-                : RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: TweenAnimationBuilder<double>(
-                      key: ValueKey(data != null),
-                      tween: Tween(begin: 0, end: 1),
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                      builder: (context, value, child) => Opacity(
-                        opacity: value,
-                        child: child,
-                      ),
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding:
-                            AppSpacing.list.copyWith(bottom: bottomPadding),
-                        children: _buildContent(context, data),
-                      ),
-                    ),
-                  ),
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: TweenAnimationBuilder<double>(
+            key: const ValueKey('welcome-content'),
+            tween: Tween(begin: 0, end: 1),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            builder: (context, value, child) => Opacity(
+              opacity: value,
+              child: child,
+            ),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: AppSpacing.list.copyWith(bottom: bottomPadding),
+              children: _buildContent(context),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  List<Widget> _buildContent(BuildContext context, _WelcomeData? data) {
+  List<Widget> _buildContent(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final addresses = data?.addresses ?? const <Address>[];
+    final addresses = _addresses.data ?? const <Address>[];
     final recent = addresses.take(3).toList();
     final tip = _tipOfDay();
 
@@ -287,32 +377,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         ),
       ),
       const SizedBox(height: AppSpacing.lg),
-      if (_error != null)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Row(
-                children: [
-                  Icon(Icons.cloud_off_outlined, color: scheme.error),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'Impossible de rafraîchir certaines données.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _refresh,
-                    child: const Text('Réessayer'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      _buildSummary(context, data),
+      _buildSummary(context),
       const SizedBox(height: AppSpacing.lg),
       const SectionHeader(
         title: 'Actions rapides',
@@ -332,21 +397,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             : null,
       ),
       const SizedBox(height: AppSpacing.sm),
-      if (recent.isEmpty)
-        _buildEmptyRecent(context)
-      else
-        ...List.generate(recent.length, (index) {
-          final address = recent[index];
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: index < recent.length - 1 ? AppSpacing.sm : 0,
-            ),
-            child: AddressListCard(
-              address: address,
-              onTap: () => _openAddress(address),
-            ),
-          );
-        }),
+      _buildRecentBlock(context, recent),
       const SizedBox(height: AppSpacing.lg),
       const SectionHeader(
         title: 'Astuce du jour',
@@ -385,48 +436,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           ),
         ),
       ),
-      if ((data?.activeShareLinks ?? 0) > 0) ...[
-        const SizedBox(height: AppSpacing.lg),
-        const SectionHeader(
-          title: 'Partages actifs',
-          icon: Icons.share_outlined,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.link, color: scheme.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Vous avez ${data!.activeShareLinks} lien${data.activeShareLinks > 1 ? 's' : ''} de partage actif${data.activeShareLinks > 1 ? 's' : ''}.',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(
-                        'Gérez-les depuis la fiche de chaque adresse.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.go('/'),
-                  child: const Text('Adresses'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      _buildShareLinksBlock(context),
       const SizedBox(height: AppSpacing.xl),
       const Divider(),
       const SizedBox(height: AppSpacing.sm),
@@ -452,11 +462,172 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     ];
   }
 
-  Widget _buildSummary(BuildContext context, _WelcomeData? data) {
+  /// Petit message d'erreur local : jamais le détail technique de l'exception.
+  Widget _blockError(BuildContext context, {required VoidCallback onRetry}) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.cloud_off_outlined, size: 18, color: scheme.error),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Impossible de charger',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _blockLoading() => const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Center(
+          child: SizedBox(
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+
+  Widget _buildRecentBlock(BuildContext context, List<Address> recent) {
+    if (_addresses.error != null) {
+      return _blockError(
+        context,
+        onRetry: () => _loadAddresses(refresh: true),
+      );
+    }
+    if (_addresses.data == null) return _blockLoading();
+    if (recent.isEmpty) return _buildEmptyRecent(context);
+
+    return Column(
+      children: List.generate(recent.length, (index) {
+        final address = recent[index];
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index < recent.length - 1 ? AppSpacing.sm : 0,
+          ),
+          child: AddressListCard(
+            address: address,
+            onTap: () => _openAddress(address),
+            actions: AddressActionsMenu(
+              address: address,
+              isFavorite: _favorites.data?.contains(address.id) ?? false,
+              onFavoriteChanged: (value) =>
+                  _setFavoriteLocally(address.id, value),
+              onDeleted: _removeAddressLocally,
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildShareLinksBlock(BuildContext context) {
+    final block = _shareLinks;
+    const header = SectionHeader(
+      title: 'Partages actifs',
+      icon: Icons.share_outlined,
+    );
+
+    if (block.error != null) {
+      return Column(
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          header,
+          const SizedBox(height: AppSpacing.sm),
+          _blockError(context, onRetry: () => _loadShareLinks(refresh: true)),
+        ],
+      );
+    }
+    if (block.data == null) {
+      return Column(
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          header,
+          _blockLoading(),
+        ],
+      );
+    }
+
+    final count = block.data!;
+    if (count == 0) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final addresses = data?.addresses.length ?? 0;
-    final favorites = data?.favoriteCount ?? 0;
+    return Column(
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        header,
+        const SizedBox(height: AppSpacing.sm),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.link, color: scheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Vous avez $count lien${count > 1 ? 's' : ''} de partage actif${count > 1 ? 's' : ''}.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        'Gérez-les depuis la fiche de chaque adresse.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('Adresses'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummary(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final addressesError = _addresses.error;
+    final favoritesError = _favorites.error;
+
+    if (addressesError != null || favoritesError != null) {
+      return _blockError(
+        context,
+        onRetry: () {
+          if (addressesError != null) _loadAddresses(refresh: true);
+          if (favoritesError != null) _loadFavorites(refresh: true);
+        },
+      );
+    }
+
+    final addressCount = _addresses.data?.length;
+    final favoriteCount = _favorites.data?.length;
 
     Widget chip({
       required IconData icon,
@@ -507,16 +678,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         chip(
           icon: Icons.place_outlined,
           label: 'Adresses',
-          value: '$addresses',
-          semanticsLabel: '$addresses adresse${addresses > 1 ? 's' : ''}',
+          value: addressCount == null ? '…' : '$addressCount',
+          semanticsLabel: addressCount == null
+              ? 'Chargement des adresses'
+              : '$addressCount adresse${addressCount > 1 ? 's' : ''}',
           onTap: () => context.go('/'),
         ),
         const SizedBox(width: AppSpacing.sm),
         chip(
           icon: Icons.star_outline,
           label: 'Favoris',
-          value: '$favorites',
-          semanticsLabel: '$favorites favori${favorites > 1 ? 's' : ''}',
+          value: favoriteCount == null ? '…' : '$favoriteCount',
+          semanticsLabel: favoriteCount == null
+              ? 'Chargement des favoris'
+              : '$favoriteCount favori${favoriteCount > 1 ? 's' : ''}',
           onTap: () => context.go('/favorites'),
         ),
       ],

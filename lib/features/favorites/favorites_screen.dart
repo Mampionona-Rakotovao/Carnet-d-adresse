@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/address_refresh.dart';
 import '../../core/favorites.dart';
 import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
@@ -24,6 +25,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   void initState() {
     super.initState();
     _favoritesFuture = _fetchFavorites();
+    addressDataRevision.addListener(_onDataChanged);
+  }
+
+  @override
+  void dispose() {
+    addressDataRevision.removeListener(_onDataChanged);
+    super.dispose();
+  }
+
+  void _onDataChanged() {
+    if (mounted) _refresh();
   }
 
   Future<List<Address>> _fetchFavorites() async {

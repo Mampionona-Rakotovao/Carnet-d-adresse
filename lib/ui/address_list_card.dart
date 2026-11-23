@@ -10,10 +10,15 @@ class AddressListCard extends StatelessWidget {
     super.key,
     required this.address,
     required this.onTap,
+    this.actions,
   });
 
   final Address address;
   final VoidCallback onTap;
+
+  /// Menu d'actions (« ⋮ ») facultatif. Quand il est fourni, il remplace la
+  /// flèche de fin de carte ; l'appui sur la carte continue d'ouvrir la fiche.
+  final Widget? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +93,13 @@ class AddressListCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Icons.chevron_right,
-                color: scheme.onSurfaceVariant,
-              ),
+              if (actions != null)
+                actions!
+              else
+                Icon(
+                  Icons.chevron_right,
+                  color: scheme.onSurfaceVariant,
+                ),
             ],
           ),
         ),
