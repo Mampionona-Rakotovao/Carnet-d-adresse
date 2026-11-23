@@ -65,7 +65,7 @@ class _ShareLinkSheetState extends State<_ShareLinkSheet> {
   Future<void> _loadLinks() async {
     setState(() => _loadingLinks = true);
     try {
-      // Même chargeur que la page Bienvenue : un seul calcul des utilisations
+      // Même chargeur que la page Accueil : un seul calcul des utilisations
       // et un seul critère de lien actif pour tout l'application.
       final links = await fetchShareLinksWithUsage(
         column: 'address_id',

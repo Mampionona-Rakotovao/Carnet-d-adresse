@@ -142,7 +142,7 @@
 - Catégorie : Compte et authentification
 - Description : Déconnecte depuis le menu accueil (avec confirmation) et force un retour propre au login si la session stockée est invalide/expirée.
 - Statut : ✅ Complète
-- Où l'utiliser : `/` menu ⋮ → « Se déconnecter » ; au démarrage ; sur erreur JWT dans le flux accueil.
+- Où l'utiliser : onglet Accueil (`/bienvenue`) menu ⋮ → « Se déconnecter » ; au démarrage ; sur erreur JWT dans le flux accueil.
 - Preuves : `lib/features/home/home_screen.dart:53-103`, `lib/features/home/home_screen.dart:189-201`, `lib/main.dart:113-120`, `lib/features/home/home_screen.dart:228-235`.
 - Données : `auth.signOut()`, `auth.refreshSession()`.
 - Permissions et dépendances : `supabase_flutter`.
@@ -455,7 +455,7 @@
 - Catégorie : Partage
 - Description : Liste les adresses reçues dont le lien reste valide, avec détails dépliables, ouverture fiche complète et rafraîchissement périodique.
 - Statut : 🟡 Partielle
-- Où l'utiliser : `Adresses` menu ⋮ → « Partagées avec moi » → `/shared`.
+- Où l'utiliser : onglet Accueil menu ⋮ → « Partagées avec moi » → `/shared` ; également depuis l'état vide de la page Adresses.
 - Preuves : `lib/features/share/shared_with_me_screen.dart:27-102`, `lib/features/share/shared_with_me_screen.dart:104-315`, `lib/core/shared_with_me.dart:11-16`, `supabase/migrations/20261104_000001_limite_partage_liens.sql:329-374`.
 - Données : RPC `get_my_shared_addresses` ; RPC `redeem_share_link` pour charger détails (idempotent côté serveur).
 - Permissions et dépendances : `supabase_flutter`.
@@ -479,7 +479,7 @@
 - Catégorie : Aide et accompagnement
 - Description : Fournit un centre d’aide avec accueil thématique, catégories, articles détaillés, navigation vers écrans cibles et recherche locale.
 - Statut : ✅ Complète
-- Où l'utiliser : `Adresses` menu ⋮ → « Aide » → `/aide`, `/aide/categorie/:categorie`, `/aide/:id`.
+- Où l'utiliser : onglet Accueil menu ⋮ → « Aide » → `/aide`, `/aide/categorie/:categorie`, `/aide/:id` ; également depuis les actions rapides de l'accueil.
 - Preuves : `lib/features/help/screens/help_center_screen.dart:22-266`, `lib/features/help/screens/help_category_screen.dart`, `lib/features/help/screens/help_article_screen.dart:28-280`, `lib/features/help/data/help_content.dart:1-220`, `lib/features/help/data/help_content.dart:2255-2334`, `lib/core/router.dart:241-265`.
 - Données : contenu statique local (`helpArticles`) ; aucune DB distante.
 - Permissions et dépendances : `go_router`, `shared_preferences` (feedback article).
@@ -525,7 +525,7 @@
 - Catégorie : Interface et design / Paramètres et préférences
 - Description : Applique un thème Material 3 clair/sombre, mémorise le choix utilisateur et permet de le changer depuis l’accueil.
 - Statut : ✅ Complète
-- Où l'utiliser : global ; `Adresses` menu ⋮ → section « Apparence ».
+- Où l'utiliser : global ; onglet Accueil menu ⋮ → section « Apparence ».
 - Preuves : `lib/core/theme/app_theme.dart`, `lib/core/theme/theme_mode_controller.dart:1-56`, `lib/main.dart:106,147,172-204`, `lib/features/home/home_screen.dart:111-163`.
 - Données : `SharedPreferences` clé `theme_mode` (`theme_mode_controller.dart:3,18-25`).
 - Permissions et dépendances : `shared_preferences`, `MaterialApp.router`.
@@ -534,7 +534,7 @@
 
 #### F-041 · Barre de navigation flottante (shell)
 - Catégorie : Interface et design
-- Description : Affiche une barre flottante custom à 4 onglets (Bienvenue, Adresses, Recherche, Favoris) ; l’écran `/share/open` reste dans le shell et est rattaché à l’onglet Adresses. Animation, haptique et masquage clavier.
+- Description : Affiche une barre flottante custom à 4 onglets (Accueil, Adresses, Recherche, Favoris) ; l’écran `/share/open` reste dans le shell et est rattaché à l’onglet Adresses. Animation, haptique et masquage clavier.
 - Statut : ✅ Complète
 - Où l'utiliser : routes shell `/bienvenue`, `/`, `/search`, `/favorites`, `/share/open`.
 - Preuves : `lib/core/app_scaffold.dart`, `lib/ui/app_bottom_nav.dart`, `lib/core/router.dart`.
@@ -773,7 +773,7 @@
 1. **Erreurs de compilation statique détectées par l’analyseur** : `lib/features/address_detail/widgets/share_link_sheet.dart:199-201` contient un doublon de fermeture `],` dans `AlertDialog.actions` (`Expected an identifier`, `Expected to find ')'` — `flutter analyze`). Le fichier peut rester exécutable selon contexte mais l’analyse échoue.
 2. **10 tests en échec** (52 total, 42 passés) : échecs signalés sur `test/app_bottom_nav_test.dart` (ex. ancrage/hauteur attendue 588 vs 592, hauteurTotale 150 vs 121.5 aux lignes ~380/413/469 selon sortie) et autres cas listés en fin de `flutter test` (goldens/background/nav inclus). `flutter analyze` rapporte aussi 24 issues.
 3. **Lien partage côté client suppose consultation publique web, serveur l’exige authentifié** : l’aide et la page `/a/:token` évoquent un flux accessible via lien/navigateur/Messenger (`help_content.dart:1669-1688`, `shared_link_screen.dart:217-223`) mais `redeem_share_link` retourne `auth_required` si `auth.uid()` est null (`supabase/migrations/20261104_000001_limite_partage_liens.sql:120-123`) ; anciennes RPC publiques ont été révoquées (`20261104_000001...:386-393`).
-4. **`/share/open` ouvert depuis la barre shell mais sans item dédié explicite** : le shell définit 4 onglets (`Bienvenue/Adresses/Recherche/Favoris`) et rattache `/share/open` à l’onglet Adresses (`lib/core/app_scaffold.dart`) ; l’utilisateur peut y arriver via navigation interne mais la barre n’expose pas d’onglet dédié.
+4. **`/share/open` ouvert depuis la barre shell mais sans item dédié explicite** : le shell définit 4 onglets (`Accueil/Adresses/Recherche/Favoris`) et rattache `/share/open` à l’onglet Adresses (`lib/core/app_scaffold.dart`) ; l’utilisateur peut y arriver via navigation interne mais la barre n’expose pas d’onglet dédié.
 5. **Recherche « Partagées avec moi » codée mais non exposée** : `SearchScope.sharedWithMe` et requête `address_permissions` existent (`lib/features/search/search_screen.dart:12,93-104`) mais `SegmentedButton` ne propose que Tout/Mes adresses/Publiques (`search_screen.dart:197-225`). Comportement potentiellement partiel/inaccessible.
 6. **Notifications d’ouverture incomplètes côté client** : `share_link_uses` est interrogé globalement puis filtré côté app (`core/share_notifications.dart:79-121`) ; en pratique la visibilité dépend des RLS/policies non complètes dans le dépôt, et l’app doit refaire des lectures `share_links/addresses/profiles` (`share_notifications.dart:151-224`) pouvant échouer silencieusement (`catch` vide).
 7. **`_webRedirectFallback` inutilisé** dans `GoogleSignInButton` (`lib/features/auth/widgets/google_sign_in_button.dart:12`, warning analyze). `AppSkeleton` défini mais jamais utilisé (`lib/ui/app_skeleton.dart`, grep).

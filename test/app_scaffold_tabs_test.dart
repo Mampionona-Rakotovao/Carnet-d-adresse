@@ -52,6 +52,10 @@ void main() {
     await _pump(tester, '/bienvenue');
     expect(_currentIndex(tester), 0);
 
+    // L'onglet 1 s'appelle désormais « Accueil » (route inchangée).
+    expect(find.text('Accueil'), findsOneWidget);
+    expect(find.text('Adresses'), findsOneWidget);
+
     await _pump(tester, '/');
     expect(_currentIndex(tester), AppScaffold.indexAdresses);
 

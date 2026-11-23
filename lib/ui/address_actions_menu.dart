@@ -13,7 +13,7 @@ import 'app_feedback.dart';
 enum _AddressMenuAction { favorite, share, edit, delete }
 
 /// Menu « ⋮ » d'une carte d'adresse, identique dans l'onglet Adresses et dans
-/// les adresses récentes de la page Bienvenue.
+/// les adresses récentes de la page Accueil.
 ///
 /// Le widget exécute lui-même les actions (favori, partage, modification,
 /// suppression) et prévient le reste de l'application via

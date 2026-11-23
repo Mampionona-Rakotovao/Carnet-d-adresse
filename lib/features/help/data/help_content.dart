@@ -36,7 +36,7 @@ const List<HelpArticle> helpArticles = [
       'Créez un compte ou connectez-vous.',
       'Ajoutez une adresse avec son nom, sa localité et sa position GPS.',
       'Ajoutez une photo, des repères et des étapes pour décrire le chemin.',
-      'Retrouvez vos adresses depuis les onglets Bienvenue, Adresses, Recherche et Favoris.',
+      'Retrouvez vos adresses depuis les onglets Accueil, Adresses, Recherche et Favoris.',
       'Partagez une adresse avec un lien temporaire.',
     ],
     astuces: [
@@ -176,11 +176,11 @@ const List<HelpArticle> helpArticles = [
       'deconnexion',
     ],
     resume:
-        'L\'écran Adresses regroupe vos adresses récentes, le menu principal et l\'accès aux actions courantes.',
+        'L\'écran Adresses regroupe vos adresses récentes et l\'accès aux actions courantes.',
     etapes: [
-      'La barre du bas propose « Bienvenue », « Adresses », « Recherche » et « Favoris ».',
+      'La barre du bas propose « Accueil », « Adresses », « Recherche » et « Favoris ».',
       'Sur l\'écran Adresses, la liste « Adresses récentes » montre vos adresses.',
-      'Le menu ⋮ en haut à droite propose « Apparence », « Ajouter une adresse », « Partagées avec moi », « Aide » et « Se déconnecter ».',
+      'Le menu ⋮ de l\'onglet Accueil propose « Apparence », « Ajouter une adresse », « Partagées avec moi », « Aide » et « Se déconnecter ».',
       'Appuyez sur une adresse pour ouvrir sa fiche complète.',
     ],
     astuces: [
@@ -200,7 +200,7 @@ const List<HelpArticle> helpArticles = [
   HelpArticle(
     id: 'bienvenue',
     categorie: HelpCategory.demarrer,
-    titre: 'Découvrir la page Bienvenue',
+    titre: 'Découvrir la page Accueil',
     motsCles: [
       'bienvenue',
       'accueil',
@@ -213,19 +213,19 @@ const List<HelpArticle> helpArticles = [
       'recentes',
     ],
     resume:
-        'La page Bienvenue vous donne un aperçu rapide de votre carnet et des raccourcis utiles.',
+        'La page Accueil vous donne un aperçu rapide de votre carnet et des raccourcis utiles.',
     etapes: [
-      'Ouvrez l\'onglet « Bienvenue » dans la barre du bas.',
+      'Ouvrez l\'onglet « Accueil » dans la barre du bas.',
       'Consultez le résumé de vos adresses et de vos favoris.',
       'Utilisez les actions rapides pour ajouter, rechercher ou ouvrir l\'aide.',
       'Retrouvez vos adresses récentes et l\'astuce du jour.',
     ],
     astuces: [
-      'La page Bienvenue s\'ouvre après votre connexion pour vous aider à reprendre rapidement.',
+      'La page Accueil s\'ouvre après votre connexion pour vous aider à reprendre rapidement.',
       'Vous pouvez revoir le tour de bienvenue depuis le bas de la page.',
     ],
     articlesLies: ['accueil', 'creer-adresse', 'rechercher-adresse'],
-    openLabel: 'Ouvrir Bienvenue',
+    openLabel: 'Ouvrir Accueil',
     openRoute: '/bienvenue',
   ),
   HelpArticle(
@@ -245,7 +245,7 @@ const List<HelpArticle> helpArticles = [
     resume:
         'L\'application peut suivre le réglage du téléphone ou rester en clair ou en sombre.',
     etapes: [
-      'Sur l\'accueil, ouvrez le menu ⋮.',
+      'Sur l\'onglet Accueil, ouvrez le menu ⋮.',
       'Dans la section « Apparence », choisissez « Système », « Clair » ou « Sombre ».',
       'Le choix est mémorisé sur ce téléphone.',
     ],
@@ -278,7 +278,7 @@ const List<HelpArticle> helpArticles = [
     resume:
         'Créez une adresse avec un nom, une position GPS et, si vous le souhaitez, une photo et une description.',
     etapes: [
-      'Depuis l\'accueil, ouvrez le menu ⋮ puis « Ajouter une adresse ».',
+      'Depuis l\'onglet Accueil, ouvrez le menu ⋮ puis « Ajouter une adresse ».',
       'Ajoutez une photo si vous le souhaitez (facultatif).',
       'Saisissez le « Nom du lieu » (obligatoire), puis éventuellement une « Description » et une « Localité ».',
       'Appuyez sur « Capturer ma position actuelle », puis ajustez la position sur la carte.',
@@ -413,7 +413,7 @@ const List<HelpArticle> helpArticles = [
     resume:
         'Le propriétaire peut modifier le nom, la description, la localité, la photo, la position et la visibilité.',
     etapes: [
-      'Ouvrez l\'adresse depuis l\'accueil, la recherche ou les favoris.',
+      'Ouvrez l\'adresse depuis l\'onglet Accueil, la recherche ou les favoris.',
       'Sur la fiche, appuyez sur l\'icône crayon « Modifier ».',
       'Changez le nom, la description, la localité, la photo, la position ou la visibilité.',
       'Appuyez sur « Enregistrer les modifications ».',
@@ -1259,7 +1259,7 @@ const List<HelpArticle> helpArticles = [
     resume:
         'Messenger ouvre parfois les liens dans son navigateur interne, qui ne sait pas lancer l\'application. Il faut ouvrir le lien dans le navigateur du téléphone.',
     etapes: [
-      'Sur la page « Installer l\'application », ouvrez le menu ⋮ en haut à droite.',
+      'Sur la page « Installer l\'application », ouvrez le menu ⋮ de l\'onglet Accueil.',
       'Choisissez « Ouvrir dans le navigateur ».',
       'Si le bouton existe, vous pouvez aussi appuyer sur « Ouvrir dans l\'application ».',
       'Sinon, copiez le lien et collez-le dans Chrome ou dans votre navigateur habituel.',
@@ -1326,7 +1326,7 @@ const List<HelpArticle> helpArticles = [
     resume:
         'Le menu « Partagées avec moi » liste les adresses reçues par lien et encore valides.',
     etapes: [
-      'Sur l\'accueil, ouvrez le menu ⋮.',
+      'Sur l\'onglet Accueil, ouvrez le menu ⋮.',
       'Appuyez sur « Partagées avec moi ».',
       'La liste affiche les adresses reçues par lien et encore valides.',
       'Appuyez sur une adresse pour afficher ses détails, ou sur l\'icône pour ouvrir la fiche complète.',
@@ -1515,9 +1515,9 @@ const List<HelpArticle> helpArticles = [
       'supprimer compte',
     ],
     resume:
-        'La déconnexion se fait depuis le menu de l\'accueil. Elle ne supprime pas vos adresses.',
+        'La déconnexion se fait depuis le menu de l\'onglet Accueil. Elle ne supprime pas vos adresses.',
     etapes: [
-      'Sur l\'accueil, ouvrez le menu ⋮.',
+      'Sur l\'onglet Accueil, ouvrez le menu ⋮.',
       'Appuyez sur « Se déconnecter ».',
       'Confirmez avec « Déconnexion ».',
       'Vous devrez vous reconnecter pour accéder à vos adresses.',
@@ -1815,7 +1815,7 @@ const List<HelpArticle> helpArticles = [
     resume:
         'Le bouton « Contacter le support » ouvre votre application de messagerie avec un message pré-rempli.',
     etapes: [
-      'Ouvrez le centre d\'aide depuis le menu ⋮ de l\'accueil.',
+      'Ouvrez le centre d\'aide depuis le menu ⋮ de l\'onglet Accueil.',
       'Appuyez sur « Contacter le support ».',
       'Votre application de messagerie s\'ouvre avec un message pré-rempli.',
       'Décrivez le problème et envoyez le message.',

@@ -10,20 +10,34 @@ import '../core/theme/app_spacing.dart';
 /// Onglet de la barre de navigation flottante.
 ///
 /// [icon] est la version contour (onglet inactif), [selectedIcon] la version
-/// pleine affichée dans la bulle de l'onglet actif.
+/// pleine affichée dans la bulle de l'onglet actif. Pour une icône dessinée en
+/// code, on peut fournir [iconBuilder] / [selectedIconBuilder] à la place :
+/// les deux formes coexistent, les `IconData` restant le cas courant.
 @immutable
 class AppBottomNavItem {
   const AppBottomNavItem({
     required this.label,
-    required this.icon,
-    required this.selectedIcon,
+    this.icon,
+    this.selectedIcon,
+    this.iconBuilder,
+    this.selectedIconBuilder,
     this.tooltip,
     this.badgeCount,
-  }) : assert(badgeCount == null || badgeCount >= 0, 'badgeCount >= 0');
+  })  : assert(
+            (icon != null && selectedIcon != null) ||
+                (iconBuilder != null && selectedIconBuilder != null),
+            'Fournir icon/selectedIcon ou iconBuilder/selectedIconBuilder'),
+        assert(badgeCount == null || badgeCount >= 0, 'badgeCount >= 0');
 
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
+  final IconData? icon;
+  final IconData? selectedIcon;
+
+  /// Constructeur d'icône personnalisée (contour), reçoit couleur et taille.
+  final Widget Function(Color color, double size)? iconBuilder;
+
+  /// Constructeur d'icône personnalisée (pleine), pour la bulle active.
+  final Widget Function(Color color, double size)? selectedIconBuilder;
   final String? tooltip;
 
   /// Compteur optionnel affiché sur l'icône (jamais sur le libellé).
@@ -396,18 +410,24 @@ class _AppBottomNavState extends State<AppBottomNav>
     );
   }
 
-  /// Icône en contour avec, le cas échéant, son badge de compteur.
+  /// Icône en contour (Material ou dessinée) avec, le cas échéant, son badge.
+  Widget _icone(AppBottomNavItem item, double taille, Color couleur) =>
+      item.iconBuilder != null
+          ? item.iconBuilder!(couleur, taille)
+          : Icon(item.icon, size: taille, color: couleur);
+
   Widget _iconeAvecBadge(
       AppBottomNavItem item, _Geo geo, ColorScheme scheme) {
     final compte = item.badgeCount;
+    final taille = geo.bubbleRadius == 28 ? 24.0 : 22.0;
     if (compte == null || compte <= 0) {
-      return Icon(item.icon, size: geo.bubbleRadius == 28 ? 24 : 22);
+      return _icone(item, taille, scheme.onSurfaceVariant);
     }
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
       children: [
-        Icon(item.icon, size: geo.bubbleRadius == 28 ? 24 : 22),
+        _icone(item, taille, scheme.onSurfaceVariant),
         Positioned(
           top: -6,
           right: -10,
@@ -437,6 +457,12 @@ class _AppBottomNavState extends State<AppBottomNav>
     );
   }
 
+  /// Icône pleine de la bulle : Material ou dessinée, selon l'onglet.
+  Widget _iconePleine(AppBottomNavItem item, double taille, Color couleur) =>
+      item.selectedIconBuilder != null
+          ? item.selectedIconBuilder!(couleur, taille)
+          : Icon(item.selectedIcon, size: taille, color: couleur);
+
   /// La bulle de l'onglet actif : disque d'accent, anneau de surface, icône
   /// pleine. La sémantique est portée par la cellule de la rangée.
   Widget _bulle(double fondu, _Geo geo, ThemeData theme) {
@@ -465,20 +491,14 @@ class _AppBottomNavState extends State<AppBottomNav>
                   if (fondu < 1)
                     Opacity(
                       opacity: 1 - fondu,
-                      child: Icon(
-                        widget.items[source].selectedIcon,
-                        size: tailleIcone,
-                        color: scheme.onPrimary,
-                      ),
+                      child: _iconePleine(
+                        widget.items[source], tailleIcone, scheme.onPrimary),
                     ),
                   // Icône de l'onglet visé, qui apparaît.
                   Opacity(
                     opacity: fondu,
-                    child: Icon(
-                      widget.items[cible].selectedIcon,
-                      size: tailleIcone,
-                      color: scheme.onPrimary,
-                    ),
+                    child: _iconePleine(
+                      widget.items[cible], tailleIcone, scheme.onPrimary),
                   ),
                 ],
               ),

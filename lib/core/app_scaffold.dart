@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../ui/app_bottom_nav.dart';
+import '../ui/icons/address_book_icon.dart';
 
 /// Enveloppe de navigation des écrans racine.
 ///
@@ -51,23 +52,23 @@ class AppScaffold extends StatelessWidget {
   /// plutôt que d'apparaître déjà en place.
   static int _ongletPrecedent = indexAdresses;
 
-  static const List<AppBottomNavItem> _onglets = [
-    AppBottomNavItem(
-      label: 'Bienvenue',
-      icon: Icons.waving_hand_outlined,
-      selectedIcon: Icons.waving_hand,
-    ),
-    AppBottomNavItem(
-      label: 'Adresses',
+  static final List<AppBottomNavItem> _onglets = [
+    const AppBottomNavItem(
+      label: 'Accueil',
       icon: Icons.home_outlined,
       selectedIcon: Icons.home,
     ),
     AppBottomNavItem(
+      label: 'Adresses',
+      iconBuilder: AddressBookIcon.outline,
+      selectedIconBuilder: AddressBookIcon.solid,
+    ),
+    const AppBottomNavItem(
       label: 'Recherche',
       icon: Icons.search_outlined,
       selectedIcon: Icons.search,
     ),
-    AppBottomNavItem(
+    const AppBottomNavItem(
       label: 'Favoris',
       icon: Icons.star_border,
       selectedIcon: Icons.star,

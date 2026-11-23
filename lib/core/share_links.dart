@@ -10,7 +10,7 @@ const int _idsParLot = 100;
 /// `share_links.used_count` n'existe pas en base : c'est uniquement un champ du
 /// modèle, alimenté ici et dans le panneau de gestion des liens de la même
 /// manière. [column] est par exemple `address_id` (panneau de gestion) ou
-/// `created_by` (page Bienvenue).
+/// `created_by` (page Accueil).
 Future<List<ShareLink>> fetchShareLinksWithUsage({
   required String column,
   required String value,

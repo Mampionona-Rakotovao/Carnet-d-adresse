@@ -13,6 +13,7 @@ import '../../ui/address_list_card.dart';
 import '../../ui/app_background.dart';
 import '../../ui/app_bottom_nav.dart';
 import '../../ui/app_button.dart';
+import '../../ui/app_menu_button.dart';
 import '../../ui/section.dart';
 import '../help/widgets/onboarding_tour.dart';
 
@@ -322,7 +323,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Bienvenue')),
+      appBar: AppBar(
+        title: const Text('Bienvenue'),
+        actions: const [AppMenuButton()],
+      ),
       body: AppBackground(
         style: AppBackgroundStyle.releve,
         child: RefreshIndicator(

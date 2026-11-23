@@ -166,7 +166,7 @@ class ShareLink {
 
   /// Règle unique d'éligibilité d'un lien : ni révoqué, ni expiré, ni complet.
   /// Utilisée à la fois par le panneau de gestion des liens et par la page
-  /// Bienvenue pour afficher les mêmes chiffres.
+  /// Accueil pour afficher les mêmes chiffres.
   bool get isEffectivelyActive => !isRevoked && !isExpired && !isFull;
 
   /// Libellé d'état partagé, avec la même priorité que l'état effectif.
