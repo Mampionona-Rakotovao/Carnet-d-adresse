@@ -26,6 +26,7 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
   Address? _address;
   List<Landmark> _landmarks = [];
   List<RouteStep> _steps = [];
+  bool _estProprietaire = false;
 
   @override
   void dispose() {
@@ -51,6 +52,7 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
       _address = null;
       _landmarks = [];
       _steps = [];
+      _estProprietaire = false;
     });
 
     try {
@@ -68,6 +70,7 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
         _address = result.address;
         _landmarks = result.landmarks;
         _steps = result.steps;
+        _estProprietaire = result.isOwner;
       });
     } catch (e) {
       if (mounted) setState(() => _error = 'Erreur : $e');
@@ -84,54 +87,55 @@ class _RedeemShareScreenState extends State<RedeemShareScreen> {
       body: AppBackground(
         style: AppBackgroundStyle.calme,
         child: ListView(
-        // La barre flottante est posée par le shell au-dessus du contenu :
-        // la liste réserve sa hauteur + une marge.
-        padding: AppSpacing.form.copyWith(
-          bottom: AppBottomNav.hauteurTotale(context) + AppSpacing.md,
-        ),
-        children: [
-          TextField(
-            controller: _controller,
-            decoration: const InputDecoration(
-              labelText: 'Code ou lien reçu',
-              border: OutlineInputBorder(),
-              hintText: 'Ex: 8f3c2a1b9d4e...',
+          // La barre flottante est posée par le shell au-dessus du contenu :
+          // la liste réserve sa hauteur + une marge.
+          padding: AppSpacing.form.copyWith(
+            bottom: AppBottomNav.hauteurTotale(context) + AppSpacing.md,
+          ),
+          children: [
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Code ou lien reçu',
+                border: OutlineInputBorder(),
+                hintText: 'Ex: 8f3c2a1b9d4e...',
+              ),
+              onSubmitted: (_) => _open(),
             ),
-            onSubmitted: (_) => _open(),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          FilledButton(
-            onPressed: _loading ? null : _open,
-            child: _loading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text("Ouvrir l'adresse"),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (_error != null)
-            Card(
-              color: Colors.red.shade50,
-              child: Padding(
-                padding: AppSpacing.form,
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: Colors.red),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(_error!)),
-                  ],
+            const SizedBox(height: AppSpacing.sm),
+            FilledButton(
+              onPressed: _loading ? null : _open,
+              child: _loading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text("Ouvrir l'adresse"),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            if (_error != null)
+              Card(
+                color: Colors.red.shade50,
+                child: Padding(
+                  padding: AppSpacing.form,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(_error!)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          if (_address != null)
-            SharedAddressContent(
-              address: _address!,
-              landmarks: _landmarks,
-              steps: _steps,
-            ),
-        ],
+            if (_address != null)
+              SharedAddressContent(
+                address: _address!,
+                landmarks: _landmarks,
+                steps: _steps,
+                estProprietaireConfirmee: _estProprietaire,
+              ),
+          ],
         ),
       ),
     );

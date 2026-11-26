@@ -1233,11 +1233,51 @@ const List<HelpArticle> helpArticles = [
     astuces: [
       'Le destinataire ne peut pas modifier ni supprimer l\'adresse.',
       'Les liens reçus encore valides apparaissent dans « Partagées avec moi ».',
+      'Sur Android, une adresse privée lue par un non-propriétaire ne peut pas être capturée : une pastille avec un cadenas le rappelle.',
     ],
     articlesLies: [
       'creer-partage',
       'personnes-partage',
       'erreurs-partage',
+      'partagees-avec-moi',
+      'captures-desactivees',
+    ],
+  ),
+  HelpArticle(
+    id: 'captures-desactivees',
+    categorie: HelpCategory.partage,
+    titre: 'Pourquoi je ne peux pas faire de capture d’écran ?',
+    motsCles: [
+      'capture',
+      'capture d’écran',
+      'capture ecran',
+      'screenshot',
+      'enregistrement',
+      'aperçu',
+      'apercu',
+      'cadenas',
+      'privée',
+      'privee',
+      'lecture seule',
+    ],
+    resume:
+        'Sur Android, les captures et les aperçus sont bloqués quand vous consultez une adresse privée qui ne vous appartient pas.',
+    etapes: [
+      'Ouvrez une adresse privée reçue par lien ou depuis « Partagées avec moi ».',
+      'Une pastille violette avec un cadenas indique que la capture est désactivée.',
+      'Sur Android, la capture d’écran, l’enregistrement d’écran et l’aperçu dans les applications récentes sont bloqués.',
+      'Vous pouvez toujours lire l’adresse, utiliser la carte, l’itinéraire et le guidage.',
+      'La protection s’arrête quand vous quittez l’adresse ou quand vous vous déconnectez.',
+    ],
+    astuces: [
+      'Le propriétaire peut continuer à faire des captures de ses propres adresses.',
+      'Les adresses publiques ne sont pas concernées.',
+      'Cette protection est propre à Android : elle ne s’applique ni sur iPhone ni sur le web.',
+      'Si vous avez besoin d’une image, demandez-la directement au propriétaire : l’application ne peut pas contourner ce réglage.',
+    ],
+    articlesLies: [
+      'destinataire-partage',
+      'visibilite',
       'partagees-avec-moi',
     ],
   ),
@@ -1335,8 +1375,13 @@ const List<HelpArticle> helpArticles = [
     astuces: [
       'Seules les adresses dont le lien est encore valide apparaissent.',
       'L\'icône carte en haut ouvre la première adresse de la liste.',
+      'Sur Android, les vignettes privées de cette liste ne peuvent pas être capturées.',
     ],
-    articlesLies: ['destinataire-partage', 'erreurs-partage'],
+    articlesLies: [
+      'destinataire-partage',
+      'erreurs-partage',
+      'captures-desactivees',
+    ],
     openLabel: 'Ouvrir « Partagées avec moi »',
     openRoute: '/shared',
   ),
@@ -1756,8 +1801,14 @@ const List<HelpArticle> helpArticles = [
     astuces: [
       'La photo est facultative : vous pouvez enregistrer l\'adresse sans photo.',
       'Une photo prise avec l\'appareil photo puis choisie dans la galerie fonctionne aussi.',
+      'Sur Android, vous ne pouvez pas capturer l’écran d’une adresse privée reçue : demandez la photo au propriétaire.',
     ],
-    articlesLies: ['photo-adresse', 'ajouter-repere', 'contact-support'],
+    articlesLies: [
+      'photo-adresse',
+      'ajouter-repere',
+      'captures-desactivees',
+      'contact-support',
+    ],
   ),
   HelpArticle(
     id: 'connexion-impossible',
@@ -1842,6 +1893,7 @@ const List<String> _faqIds = [
   'aucun-itineraire',
   'carte-grise',
   'photo-ne-senvoie-pas',
+  'captures-desactivees',
 ];
 
 /// Mots proposés quand une recherche ne donne aucun résultat.

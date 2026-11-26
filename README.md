@@ -11,6 +11,8 @@ comment y aller.
 - Carte avec vues plan et satellite.
 - Recherche par nom, localité ou repère, et adresses favorites.
 - Partage d’adresses par lien temporaire.
+- Protection Android des captures et aperçus des adresses privées lues par un non-propriétaire.
+- Ouverture sur l’Accueil au démarrage à froid ou après connexion, sans bloquer l’onglet Adresses.
 - Centre d’aide intégré avec recherche, articles, aides contextuelles et visite guidée.
 - Contact du support par e-mail avec message pré-rempli.
 
@@ -90,6 +92,22 @@ pour les prochaines releases.
 
 Si aucune messagerie n’est disponible, l’adresse est automatiquement copiée
 dans le presse-papiers et un message le signale à l’utilisateur.
+
+## Navigation et confidentialité
+
+- Au démarrage à froid avec une session valide, l’application ouvre une seule
+  fois `/bienvenue`. Le drapeau est consommé immédiatement : l’onglet Adresses
+  (`/`) reste accessible ensuite.
+- Les liens partagés, la réinitialisation de mot de passe, le retour au premier
+  plan et le rafraîchissement silencieux du jeton ne sont pas redirigés vers
+  l’Accueil.
+- Sur Android, une adresse privée consultée par un non-propriétaire active
+  `FLAG_SECURE` : capture d’écran, enregistrement et aperçu dans les
+  applications récentes sont bloqués. Une pastille avec un cadenas l’indique.
+- Plusieurs écrans peuvent empiler la protection (fiche, repère, guidage) grâce
+  à un compteur de références ; la protection est retirée au dernier écran, au
+  redémarrage et à la déconnexion.
+- iPhone, navigateur et adresses publiques ne sont pas concernés.
 
 ## Tests et analyse statique
 

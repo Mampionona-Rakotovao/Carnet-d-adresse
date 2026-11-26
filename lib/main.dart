@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/router.dart';
+import 'core/screen_security.dart';
 import 'core/share_notifications.dart';
 import 'core/supabase_client.dart';
 import 'core/theme/app_theme.dart';
@@ -105,6 +106,8 @@ Future<void> main() async {
   // première frame, pas de scintillement clair → sombre au démarrage.
   final prefs = await SharedPreferences.getInstance();
   await initSupabase();
+  // Aucun écran protégé ne survit à un redémarrage du processus.
+  await screenSecurity.reset();
   initShareOpenNotifications();
 
   // Session enregistrée sur le téléphone mais expirée ou invalide (par
@@ -116,6 +119,7 @@ Future<void> main() async {
       await supabase.auth.refreshSession();
     } catch (_) {
       await supabase.auth.signOut();
+      await screenSecurity.reset();
     }
   }
 

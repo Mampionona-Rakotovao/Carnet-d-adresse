@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../models/landmark.dart';
 import '../../../models/route_step.dart';
+import '../../../ui/screen_protection.dart';
 import 'detail_widgets.dart';
 import 'trajet_widgets.dart';
 
@@ -31,6 +32,7 @@ Future<String?> showLandmarkDetailSheet(
   required Landmark landmark,
   required List<RouteStep> steps,
   required bool isOwner,
+  bool protegerCapture = false,
   bool afficherTrajet = false,
   LatLng? destination,
   String? nom,
@@ -41,52 +43,56 @@ Future<String?> showLandmarkDetailSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (ctx) => DetailSheetBody(
-      footer: isOwner
-          ? DetailActionBar(
-              editLabel: 'Modifier le repère',
-              onEdit: () => Navigator.of(ctx).pop(landmarkDetailEdit),
-              onDelete: () => Navigator.of(ctx).pop(landmarkDetailDelete),
-            )
-          : null,
-      children: [
-        LandmarkDetailCard(landmark),
-        if (afficherTrajet && destination != null) ...[
-          const SizedBox(height: 16),
-          TrajetBoutons(
-            destination: destination,
-            nom: nom ?? landmark.name,
-            afficherNaviguer: false,
+    builder: (ctx) => ScreenProtection(
+      enabled: protegerCapture,
+      child: DetailSheetBody(
+        footer: isOwner
+            ? DetailActionBar(
+                editLabel: 'Modifier le repère',
+                onEdit: () => Navigator.of(ctx).pop(landmarkDetailEdit),
+                onDelete: () => Navigator.of(ctx).pop(landmarkDetailDelete),
+              )
+            : null,
+        children: [
+          LandmarkDetailCard(landmark),
+          if (afficherTrajet && destination != null) ...[
+            const SizedBox(height: 16),
+            TrajetBoutons(
+              destination: destination,
+              nom: nom ?? landmark.name,
+              afficherNaviguer: false,
+              protegerCapture: protegerCapture,
+            ),
+          ],
+          const SizedBox(height: 24),
+          SectionLabel(
+            icon: Icons.route,
+            text: relatedSteps.length > 1
+                ? 'Étapes associées (${relatedSteps.length})'
+                : 'Étape associée',
           ),
-        ],
-        const SizedBox(height: 24),
-        SectionLabel(
-          icon: Icons.route,
-          text: relatedSteps.length > 1
-              ? 'Étapes associées (${relatedSteps.length})'
-              : 'Étape associée',
-        ),
-        const SizedBox(height: 12),
-        if (relatedSteps.isEmpty)
-          const Text(
-            'Aucune étape ne renvoie vers ce repère.',
-            style: TextStyle(color: Colors.grey),
-          )
-        else
-          ...relatedSteps.map(
-            (s) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: StepCard(
-                step: s,
-                isOwner: isOwner,
-                onEdit: () =>
-                    Navigator.of(ctx).pop(landmarkDetailStepEdit(s.id!)),
-                onDelete: () =>
-                    Navigator.of(ctx).pop(landmarkDetailStepDelete(s.id!)),
+          const SizedBox(height: 12),
+          if (relatedSteps.isEmpty)
+            const Text(
+              'Aucune étape ne renvoie vers ce repère.',
+              style: TextStyle(color: Colors.grey),
+            )
+          else
+            ...relatedSteps.map(
+              (s) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: StepCard(
+                  step: s,
+                  isOwner: isOwner,
+                  onEdit: () =>
+                      Navigator.of(ctx).pop(landmarkDetailStepEdit(s.id!)),
+                  onDelete: () =>
+                      Navigator.of(ctx).pop(landmarkDetailStepDelete(s.id!)),
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }

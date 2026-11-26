@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/screen_security.dart';
 import '../../core/shared_with_me.dart';
+import '../../core/supabase_client.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/landmark.dart';
 import '../../models/route_step.dart';
 import '../../models/shared_address.dart';
 import '../../ui/app_background.dart';
 import '../../ui/app_states.dart';
+import '../../ui/screen_protection.dart';
 
 /// Adresses reçues par lien et encore valides. Rien n'est copié :
 /// la liste est recalculée côté serveur à chaque ouverture.
@@ -95,6 +98,12 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
     }
   }
 
+  /// La liste affiche des vignettes : dès qu'une adresse privée n'appartient
+  /// pas au lecteur, tout l'écran est protégé (une seule pastille d'info).
+  bool _contientPriveeEtrangere() => _items.any(
+        (item) => doitProtegerCapture(item, supabase.auth.currentUser),
+      );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -122,197 +131,213 @@ class _SharedWithMeScreenState extends State<SharedWithMeScreen> {
           ),
         ],
       ),
-      body: AppBackground(
-        style: style,
-        child: _loading
-            ? const AppLoading()
-            : _error != null
-                ? AppErrorState(error: _error, onRetry: _load)
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: _items.isEmpty
-                        ? ListView(
-                            children: const [
-                              SizedBox(height: 120),
-                              AppEmptyState(
-                                icon: Icons.share_outlined,
-                                title: 'Aucune adresse partagée',
-                                message:
-                                    "Les adresses reçues par lien apparaissent ici "
-                                    "tant que le lien est valide.",
-                              ),
-                            ],
-                          )
-                        : ListView.builder(
-                            padding: AppSpacing.form,
-                            itemCount: _items.length,
-                            itemBuilder: (context, i) {
-                            final item = _items[i];
-                            final token = item.token;
-                            final expanded = _expanded.contains(token);
-                            final landmarks = _landmarks[token] ?? [];
-                            final steps = _steps[token] ?? [];
-                            final loading = _loadingDetails[token] == true;
+      body: ScreenProtection(
+        enabled: _contientPriveeEtrangere(),
+        child: AppBackground(
+          style: style,
+          child: _loading
+              ? const AppLoading()
+              : _error != null
+                  ? AppErrorState(error: _error, onRetry: _load)
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: _items.isEmpty
+                          ? ListView(
+                              children: const [
+                                SizedBox(height: 120),
+                                AppEmptyState(
+                                  icon: Icons.share_outlined,
+                                  title: 'Aucune adresse partagée',
+                                  message:
+                                      "Les adresses reçues par lien apparaissent ici "
+                                      "tant que le lien est valide.",
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              padding: AppSpacing.form,
+                              itemCount: _items.length,
+                              itemBuilder: (context, i) {
+                                final item = _items[i];
+                                final token = item.token;
+                                final expanded = _expanded.contains(token);
+                                final landmarks = _landmarks[token] ?? [];
+                                final steps = _steps[token] ?? [];
+                                final loading = _loadingDetails[token] == true;
 
-                            return Card(
-                              margin:
-                                  const EdgeInsets.only(bottom: AppSpacing.sm),
-                              child: Column(
-                                children: [
-                                  ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor:
-                                          theme.colorScheme.primaryContainer,
-                                      foregroundColor:
-                                          theme.colorScheme.onPrimaryContainer,
-                                      backgroundImage: item.photoUrl != null
-                                          ? NetworkImage(item.photoUrl!)
-                                          : null,
-                                      child: item.photoUrl == null
-                                          ? const Icon(Icons.share_location)
-                                          : null,
-                                    ),
-                                    title: Text(item.name),
-                                    subtitle: Text([
-                                      if (item.locality != null &&
-                                          item.locality!.isNotEmpty)
-                                        item.locality!,
-                                      if (item.sharedByName != null &&
-                                          item.sharedByName!.isNotEmpty)
-                                        'Partagé par ${item.sharedByName}',
-                                      item.expiryLabel,
-                                    ].join(' · ')),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          tooltip: 'Voir les détails',
-                                          icon: Icon(
-                                            expanded
-                                                ? Icons.expand_less
-                                                : Icons.expand_more,
-                                          ),
-                                          onPressed: () => _toggleExpand(item),
+                                return Card(
+                                  margin: const EdgeInsets.only(
+                                      bottom: AppSpacing.sm),
+                                  child: Column(
+                                    children: [
+                                      ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: theme
+                                              .colorScheme.primaryContainer,
+                                          foregroundColor: theme
+                                              .colorScheme.onPrimaryContainer,
+                                          backgroundImage: item.photoUrl != null
+                                              ? NetworkImage(item.photoUrl!)
+                                              : null,
+                                          child: item.photoUrl == null
+                                              ? const Icon(Icons.share_location)
+                                              : null,
                                         ),
-                                        IconButton(
-                                          tooltip: 'Ouvrir la fiche complète',
-                                          icon: const Icon(Icons.open_in_new),
-                                          onPressed: () async {
-                                            await context.push('/a/$token');
-                                            if (mounted) _load();
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    onTap: () => _toggleExpand(item),
-                                  ),
-                                  if (expanded) ...[
-                                    const Divider(height: 1),
-                                    Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              TextButton.icon(
-                                                onPressed: () async {
-                                                  await context
-                                                      .push('/a/$token');
-                                                  if (mounted) _load();
-                                                },
-                                                icon: const Icon(
-                                                    Icons.map_outlined),
-                                                label: const Text(
-                                                    'Voir sur la carte et fiche complète'),
+                                        title: Text(item.name),
+                                        subtitle: Text([
+                                          if (item.locality != null &&
+                                              item.locality!.isNotEmpty)
+                                            item.locality!,
+                                          if (item.sharedByName != null &&
+                                              item.sharedByName!.isNotEmpty)
+                                            'Partagé par ${item.sharedByName}',
+                                          item.expiryLabel,
+                                        ].join(' · ')),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              tooltip: 'Voir les détails',
+                                              icon: Icon(
+                                                expanded
+                                                    ? Icons.expand_less
+                                                    : Icons.expand_more,
                                               ),
-                                            ],
-                                          ),
-                                          if (loading) ...[
-                                            const SizedBox(height: 8),
-                                            const Center(
-                                                child:
-                                                    CircularProgressIndicator(
-                                                        strokeWidth: 2)),
-                                          ],
-                                          if (!loading &&
-                                              landmarks.isEmpty &&
-                                              steps.isEmpty) ...[
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              'Aucun repère ni étape pour cette adresse.',
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                      color: theme.colorScheme
-                                                          .onSurfaceVariant),
+                                              onPressed: () =>
+                                                  _toggleExpand(item),
+                                            ),
+                                            IconButton(
+                                              tooltip:
+                                                  'Ouvrir la fiche complète',
+                                              icon:
+                                                  const Icon(Icons.open_in_new),
+                                              onPressed: () async {
+                                                await context.push('/a/$token');
+                                                if (mounted) _load();
+                                              },
                                             ),
                                           ],
-                                          if (landmarks.isNotEmpty) ...[
-                                            const SizedBox(height: 12),
-                                            Text('Repères',
-                                                style:
-                                                    theme.textTheme.titleSmall),
-                                            const SizedBox(height: 8),
-                                            ...landmarks.map((l) => Card(
-                                                  margin: const EdgeInsets.only(
-                                                      bottom: 6),
-                                                  child: ListTile(
-                                                    dense: true,
-                                                    leading: CircleAvatar(
-                                                      backgroundImage:
-                                                          l.photoUrl != null
+                                        ),
+                                        onTap: () => _toggleExpand(item),
+                                      ),
+                                      if (expanded) ...[
+                                        const Divider(height: 1),
+                                        Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  TextButton.icon(
+                                                    onPressed: () async {
+                                                      await context
+                                                          .push('/a/$token');
+                                                      if (mounted) _load();
+                                                    },
+                                                    icon: const Icon(
+                                                        Icons.map_outlined),
+                                                    label: const Text(
+                                                        'Voir sur la carte et fiche complète'),
+                                                  ),
+                                                ],
+                                              ),
+                                              if (loading) ...[
+                                                const SizedBox(height: 8),
+                                                const Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                            strokeWidth: 2)),
+                                              ],
+                                              if (!loading &&
+                                                  landmarks.isEmpty &&
+                                                  steps.isEmpty) ...[
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Aucun repère ni étape pour cette adresse.',
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurfaceVariant),
+                                                ),
+                                              ],
+                                              if (landmarks.isNotEmpty) ...[
+                                                const SizedBox(height: 12),
+                                                Text('Repères',
+                                                    style: theme
+                                                        .textTheme.titleSmall),
+                                                const SizedBox(height: 8),
+                                                ...landmarks.map((l) => Card(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 6),
+                                                      child: ListTile(
+                                                        dense: true,
+                                                        leading: CircleAvatar(
+                                                          backgroundImage: l
+                                                                      .photoUrl !=
+                                                                  null
                                                               ? NetworkImage(
                                                                   l.photoUrl!)
                                                               : null,
-                                                      child: l.photoUrl == null
-                                                          ? const Icon(
-                                                              Icons.place,
-                                                              size: 18)
-                                                          : null,
-                                                    ),
-                                                    title: Text(l.name),
-                                                    subtitle: l.description !=
-                                                            null
-                                                        ? Text(l.description!)
-                                                        : null,
-                                                  ),
-                                                )),
-                                          ],
-                                          if (steps.isNotEmpty) ...[
-                                            const SizedBox(height: 12),
-                                            Text('Étapes du trajet',
-                                                style:
-                                                    theme.textTheme.titleSmall),
-                                            const SizedBox(height: 8),
-                                            ...steps.map((s) => Card(
-                                                  margin: const EdgeInsets.only(
-                                                      bottom: 6),
-                                                  child: ListTile(
-                                                    dense: true,
-                                                    leading: CircleAvatar(
-                                                        child: Text(
-                                                            '${s.stepOrder}')),
-                                                    title: Text(s.instruction),
-                                                    subtitle: Text([
-                                                      if (s.distance != null)
-                                                        '${s.distance!.toStringAsFixed(0)} m',
-                                                      if (s.direction != null)
-                                                        s.direction!,
-                                                    ].join(' · ')),
-                                                  ),
-                                                )),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                  ),
+                                                          child: l.photoUrl ==
+                                                                  null
+                                                              ? const Icon(
+                                                                  Icons.place,
+                                                                  size: 18)
+                                                              : null,
+                                                        ),
+                                                        title: Text(l.name),
+                                                        subtitle: l.description !=
+                                                                null
+                                                            ? Text(
+                                                                l.description!)
+                                                            : null,
+                                                      ),
+                                                    )),
+                                              ],
+                                              if (steps.isNotEmpty) ...[
+                                                const SizedBox(height: 12),
+                                                Text('Étapes du trajet',
+                                                    style: theme
+                                                        .textTheme.titleSmall),
+                                                const SizedBox(height: 8),
+                                                ...steps.map((s) => Card(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 6),
+                                                      child: ListTile(
+                                                        dense: true,
+                                                        leading: CircleAvatar(
+                                                            child: Text(
+                                                                '${s.stepOrder}')),
+                                                        title:
+                                                            Text(s.instruction),
+                                                        subtitle: Text([
+                                                          if (s.distance !=
+                                                              null)
+                                                            '${s.distance!.toStringAsFixed(0)} m',
+                                                          if (s.direction !=
+                                                              null)
+                                                            s.direction!,
+                                                        ].join(' · ')),
+                                                      ),
+                                                    )),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+        ),
       ),
     );
   }

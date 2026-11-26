@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../models/landmark.dart';
 import '../../../models/route_step.dart';
+import '../../../ui/screen_protection.dart';
 import 'detail_widgets.dart';
 
 /// Résultat renvoyé par [showRouteStepDetailSheet] quand l'utilisateur
@@ -20,55 +21,59 @@ Future<String?> showRouteStepDetailSheet(
   required RouteStep step,
   required Landmark? landmark,
   required bool isOwner,
+  bool protegerCapture = false,
 }) {
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (ctx) => DetailSheetBody(
-      footer: isOwner
-          ? DetailActionBar(
-              editLabel: 'Modifier l\'étape',
-              onEdit: () => Navigator.of(ctx).pop(routeStepDetailEdit),
-              onDelete: () => Navigator.of(ctx).pop(routeStepDetailDelete),
+    builder: (ctx) => ScreenProtection(
+      enabled: protegerCapture,
+      child: DetailSheetBody(
+        footer: isOwner
+            ? DetailActionBar(
+                editLabel: 'Modifier l\'étape',
+                onEdit: () => Navigator.of(ctx).pop(routeStepDetailEdit),
+                onDelete: () => Navigator.of(ctx).pop(routeStepDetailDelete),
+              )
+            : null,
+        children: [
+          StepCard(step: step),
+          const SizedBox(height: 24),
+          const SectionLabel(icon: Icons.place, text: 'Repère associé'),
+          const SizedBox(height: 12),
+          if (landmark == null)
+            const Text(
+              "Cette étape n'est liée à aucun repère.",
+              style: TextStyle(color: Colors.grey),
             )
-          : null,
-      children: [
-        StepCard(step: step),
-        const SizedBox(height: 24),
-        const SectionLabel(icon: Icons.place, text: 'Repère associé'),
-        const SizedBox(height: 12),
-        if (landmark == null)
-          const Text(
-            "Cette étape n'est liée à aucun repère.",
-            style: TextStyle(color: Colors.grey),
-          )
-        else
-          Card(
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundImage:
-                    landmark.photoUrl != null
-                        ? NetworkImage(landmark.photoUrl!)
-                        : null,
-                child:
-                    landmark.photoUrl == null ? const Icon(Icons.place) : null,
+          else
+            Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: landmark.photoUrl != null
+                      ? NetworkImage(landmark.photoUrl!)
+                      : null,
+                  child: landmark.photoUrl == null
+                      ? const Icon(Icons.place)
+                      : null,
+                ),
+                title: Text(landmark.name),
+                subtitle: landmark.description != null
+                    ? Text(
+                        landmark.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : null,
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(ctx).pop(routeStepDetailLandmark),
               ),
-              title: Text(landmark.name),
-              subtitle: landmark.description != null
-                  ? Text(
-                      landmark.description!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  : null,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(ctx).pop(routeStepDetailLandmark),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }

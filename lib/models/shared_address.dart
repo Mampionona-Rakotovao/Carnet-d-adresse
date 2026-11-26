@@ -1,10 +1,12 @@
+import 'address.dart';
+
 /// Une adresse reçue par un lien de partage, tant que ce lien reste valide.
 ///
 /// Construite depuis le JSON renvoyé par la fonction SQL
 /// `get_my_shared_addresses` : le serveur ne retourne que les liens encore
 /// actifs (ni expirés ni révoqués) et utilisés par l'utilisateur connecté.
 /// Rien n'est copié côté client, la liste est recalculée à chaque ouverture.
-class SharedAddressEntry {
+class SharedAddressEntry implements AdresseAvecVisibilite {
   const SharedAddressEntry({
     required this.token,
     required this.expiresAt,
@@ -13,6 +15,10 @@ class SharedAddressEntry {
     this.locality,
     this.photoUrl,
     this.sharedByName,
+    // Par défaut privée : on protège la vignette plutôt que de laisser fuir
+    // une adresse dont la visibilité n'aurait pas été transmise.
+    this.visibility = AddressVisibility.private,
+    this.sharedById,
   });
 
   final String token;
@@ -22,6 +28,15 @@ class SharedAddressEntry {
   final String? locality;
   final String? photoUrl;
   final String? sharedByName;
+
+  @override
+  final AddressVisibility visibility;
+
+  /// `shared_by.id` renvoyé par `get_my_shared_addresses`.
+  final String? sharedById;
+
+  @override
+  String? get ownerId => sharedById;
 
   factory SharedAddressEntry.fromJson(Map<String, dynamic> json) {
     final address =
@@ -39,6 +54,10 @@ class SharedAddressEntry {
       photoUrl: address['photo_url'] as String?,
       sharedByName:
           (sharedBy?['name'] as String?) ?? json['owner_name'] as String?,
+      visibility: address['visibility'] == null
+          ? AddressVisibility.private
+          : AddressVisibilityX.fromDb(address['visibility'] as String),
+      sharedById: sharedBy?['id'] as String?,
     );
   }
 

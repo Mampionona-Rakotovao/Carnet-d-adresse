@@ -7,7 +7,7 @@
 
 - **Nature** : application Flutter (Dart `>=3.3.0 <4.0.0`, version `0.1.0`) de carnet d’adresses basé sur des repères, avec carte MapTiler, itinéraire/guidage via OSRM, partage par lien Supabase et centre d’aide intégré (`pubspec.yaml:1-8`, `README.md:1-9`, `lib/main.dart:92-148`).
 - **Backend** : Supabase (URL/clé anon en dur dans `lib/core/supabase_client.dart:36-48`), tables/RPC/bucket utilisés côté app : `addresses`, `landmarks`, `route_steps`, `favorites`, `profiles`, `photos`, `address_permissions`, `share_links`, `share_link_redemptions`, `share_link_uses`, RPC `create_share_link`, `revoke_share_link`, `redeem_share_link`, `get_my_shared_addresses` (preuves `grep` et migrations).
-- **Fonctionnalités inventoriées** : **52** — ✅ Complète : 33, 🟡 Partielle : 11, 🔸 Affichage seul/stub : 1, ⚫ Code mort : 2, ❓ Non déterminé : 5.
+- **Fonctionnalités inventoriées** : **53** — ✅ Complète : 34, 🟡 Partielle : 11, 🔸 Affichage seul/stub : 1, ⚫ Code mort : 2, ❓ Non déterminé : 5.
 - **Points forts (prouvés)** : auth e-mail/Google + reset par code/lien, CRUD adresses/repères/étapes, carte plan/satellite, calcul d’itinéraire OSRM et guidage GPS animé, partage par lien avec limites/durée/révocation/compteur et écran destinataire, aide riche avec recherche locale, thèmes persistants (`lib/core/router.dart:156-301`, `lib/features/navigation/navigation_screen.dart:73-148`, `lib/features/address_detail/widgets/share_link_sheet.dart:110-207`, `lib/features/help/data/help_search.dart:18-259`).
 - **Principaux manques/écarts** : 2 erreurs d’analyse et 10 tests en échec, clé Supabase anon et URL hardcodées, App Links/`assetlinks.json` non présents dans le dépôt, iOS sans deep links/universal links déclarés, recherche « Partagées avec moi » et favoris partagés dépendants de tables/RLS non définies dans les migrations fournies, notification propriétaire incomplète côté client, pas de suppression de compte/hors-ligne/itinéraire non voiture (`flutter analyze`, `flutter test`, `lib/core/supabase_client.dart:38-39`, `lib/features/search/search_screen.dart:95-104`, `lib/core/share_notifications.dart:151-189`).
 
@@ -67,6 +67,7 @@
 | F-050 | Routeur, gardes d’auth et flux de récupération | Compte et authentification / Robustesse | ✅ | `lib/core/router.dart` |
 | F-051 | Tests automatisés et analyse statique | Tests et outils | 🟡 | `test/`, `flutter analyze/test` |
 | F-052 | Données personnelles, clés et sécurité côté client | Sécurité et confidentialité | ❓ | client + migrations partielles |
+| F-053 | Protection Android des captures d’adresses privées | Sécurité et confidentialité | ✅ | fiche, lien partagé, partagées avec moi, guidage |
 
 ## 3. Catalogue détaillé
 
@@ -637,13 +638,13 @@
 
 #### F-050 · Routeur, shell et règles d’accès navigation
 - Catégorie : Compte et authentification / Robustesse
-- Description : Définit toutes les routes, protège les écrans authentifiés, gère recovery/reset, liens partagés en attente et 404.
+- Description : Définit toutes les routes, protège les écrans authentifiés, gère recovery/reset, liens partagés en attente, ouverture unique sur l’Accueil au démarrage à froid et 404.
 - Statut : ✅ Complète
 - Où l'utiliser : global.
 - Preuves : `lib/core/router.dart:116-303`, `lib/core/app_scaffold.dart:45-113`.
 - Données : session `supabase.auth.currentSession`, état auth stream.
 - Permissions et dépendances : `go_router`, `supabase_flutter`.
-- Cas limites gérés : redirection vers login avec mémorisation lien `/a/:token` (`router.dart:136-141,147-151`) ; interdiction d’accès auth pages quand connecté sauf cas gérés (`router.dart:143-151`) ; recovery force `/reset-password` (`router.dart:129-134`).
+- Cas limites gérés : redirection vers login avec mémorisation lien `/a/:token` (`router.dart:136-141,147-151`) ; interdiction d’accès auth pages quand connecté sauf cas gérés (`router.dart:143-151`) ; recovery force `/reset-password` (`router.dart:129-134`) ; drapeau de démarrage à froid consommé une seule fois vers `/bienvenue` (`router.dart:60-73,197-210,240-253`) ; `initialSession`/`tokenRefreshed` distinguishés de `signedIn` (`router.dart:48-54,227-231`).
 - Limites ou manques constatés : `_listenForPasswordRecovery` s’abonne sans annulation stockée localement (`router.dart:107-114`) — fuite théorique mineure sur cycle de vie singleton.
 
 #### F-051 · Tests automatisés et analyse statique
@@ -665,8 +666,19 @@
 - Preuves : URL + clé anon hardcodées `lib/core/supabase_client.dart:38-39` ; `anonKey` déprécié signalé par analyze ; RPC utilisées `create_share_link/revoke_share_link/redeem_share_link/get_my_shared_addresses` (`share_link_sheet.dart:110,206`, `shared_with_me.dart:14,86`) ; migrations révoquent certains accès directs (`20261104_000001...:386-393`, `20261104_000002...:84-87`).
 - Données : `profiles`, `share_link_uses`, `share_link_redemptions`, etc.
 - Permissions et dépendances : Supabase Auth/RLS/Storage policies.
-- Cas limites gérés : décisions de partage/limites déplacées côté SQL dans migrations récentes (`20261104_000001...`, `20261104_000002...`).
+- Cas limites gérés : décisions de partage/limites déplacées côté SQL dans migrations récentes (`20261104_000001...`, `20261104_000002...`) ; protection des captures détaillée en F-053.
 - Limites ou manques constatés : `service_role` non trouvé dans `lib/` (`grep service_role` sans résultat) mais politiques RLS complètes, schéma initial des tables et configuration Storage non fournis ; impossible de certifier l’isolation des données sans accès projet Supabase.
+
+#### F-053 · Protection Android des captures d’adresses privées
+- Catégorie : Sécurité et confidentialité
+- Description : Empêche capture, enregistrement et aperçu dans les applications récentes quand un non-propriétaire consulte une adresse privée.
+- Statut : ✅ Complète
+- Où l'utiliser : fiche d'adresse, lien partagé, « Partagées avec moi », feuillets repère/étape et guidage.
+- Preuves : `android/app/src/main/kotlin/com/example/carnet_adresses_repere/MainActivity.kt` (`FLAG_SECURE`), `lib/core/screen_security.dart` (compteur + `doitProtegerCapture`), `lib/ui/screen_protection.dart` (pastille cadenas), `test/screen_security_test.dart`.
+- Données : `addresses.visibility`, `addresses.owner_id`, `is_owner` de la RPC `redeem_share_link`, `shared_by.id` de `get_my_shared_addresses`.
+- Permissions et dépendances : aucune nouvelle dépendance ; `MethodChannel` Flutter/Android uniquement.
+- Cas limites gérés : compteur de références (plusieurs écrans empilés), sérialisation des appels natifs, `MissingPluginException`/`PlatformException` ignorés, reset au démarrage et à la déconnexion, visibilité absente traitée comme privée, `mounted` vérifié après les `await`.
+- Limites ou manques constatés : spécifique Android (iOS/web non concernés) ; les liens partagés ne renvoient pas `owner_id`, la décision s'appuie sur `is_owner`.
 
 ## 4. Carte de l’application
 
@@ -695,6 +707,7 @@
 ### Notes de navigation
 - **Shell** : `ShellRoute` enveloppe `/`, `/search`, `/favorites`, `/share/open` dans `AppScaffold` (`router.dart:188-222`, `app_scaffold.dart:20-43`).
 - **Gardes** : connecté requis pour tout sauf `/login`, `/reset-code`, `/reset-password`, `/confirm-email` (avec règles spécifiques recovery et partage en attente) (`router.dart:122-152`).
+- **Démarrage à froid** : `/` reste la route initiale (`router.dart:238`) ; le `redirect` consomme `DemarrageAFroid` et ouvre `/bienvenue` une seule fois quand une session existe (`router.dart:245-253`, `computeRedirect` `:197-210`).
 - **404** : `errorBuilder` → `NotFoundPage` (`router.dart:154`).
 
 ### Écrans inaccessibles / orphelins
@@ -816,6 +829,8 @@
 - Les liens de partage demandent une connexion à un compte pour ouvrir l’adresse dans l’app (selon la logique serveur actuelle) ; ils peuvent expirer, être complets ou révoqués.
 - Le partage de liens et l’ouverture par lien sont configurés autour d’un site GitHub Pages précis ; le bon fonctionnement hors de ce cadre n’est pas garanti.
 - La suppression d’une adresse est définitive ; la suppression de compte n’est pas proposée.
+- Sur Android, les captures d’écran sont bloquées uniquement pour les adresses privées que vous ne possédez pas ; le propriétaire et les adresses publiques restent libres de faire des captures.
+- Sur iPhone et sur le web, cette protection n’existe pas : une adresse privée partagée peut être capturée avec les outils du système.
 - Le support iOS n’est pas prouvé au même niveau qu’Android (notamment ouverture de liens/app links non configurée dans `Info.plist`).
 - Certaines actions dépendent des droits/configuration côté serveur Supabase (règles d’accès, stockage), non entièrement vérifiables dans ce dépôt.
 

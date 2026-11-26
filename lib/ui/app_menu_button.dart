@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/screen_security.dart';
 import '../core/supabase_client.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/theme_mode_controller.dart';
@@ -106,6 +107,7 @@ class AppMenuButton extends StatelessWidget {
     );
     if (confirmed == true && context.mounted) {
       await supabase.auth.signOut();
+      await screenSecurity.reset();
     }
   }
 

@@ -28,12 +28,16 @@ class TrajetBoutons extends StatefulWidget {
     required this.nom,
     this.afficherNaviguer = true,
     this.onRouteChanged,
+    this.protegerCapture = false,
   });
 
   final LatLng destination;
   final String nom;
   final bool afficherNaviguer;
   final ValueChanged<RouteResult?>? onRouteChanged;
+
+  /// Propage la protection de l'adresse privée à l'écran de guidage.
+  final bool protegerCapture;
 
   @override
   State<TrajetBoutons> createState() => _TrajetBoutonsState();
@@ -129,6 +133,7 @@ class _TrajetBoutonsState extends State<TrajetBoutons> {
         builder: (_) => NavigationScreen(
           destination: widget.destination,
           nom: widget.nom,
+          protegerCapture: widget.protegerCapture,
         ),
       ),
     );
@@ -322,6 +327,7 @@ class TrajetSection extends StatefulWidget {
     this.markerIcon = Icons.location_on,
     this.markerColor = AppColors.error,
     this.hauteurCarte = 220,
+    this.protegerCapture = false,
   });
 
   final LatLng destination;
@@ -331,6 +337,7 @@ class TrajetSection extends StatefulWidget {
   final IconData markerIcon;
   final Color markerColor;
   final double hauteurCarte;
+  final bool protegerCapture;
 
   @override
   State<TrajetSection> createState() => _TrajetSectionState();
@@ -411,7 +418,7 @@ class _TrajetSectionState extends State<TrajetSection> {
                                         );
                                         widget.onLandmarkTap!(l);
                                       },
-                                child: AppMapMarker(
+                                child: const AppMapMarker(
                                   icon: Icons.place,
                                   color: AppColors.primary,
                                   size: 26,
@@ -438,6 +445,7 @@ class _TrajetSectionState extends State<TrajetSection> {
         TrajetBoutons(
           destination: widget.destination,
           nom: widget.nom,
+          protegerCapture: widget.protegerCapture,
           onRouteChanged: (route) {
             if (mounted) setState(() => _route = route);
           },

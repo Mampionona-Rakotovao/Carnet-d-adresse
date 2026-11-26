@@ -8,14 +8,24 @@ import '../../core/route_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_motion.dart';
 import '../../ui/app_button.dart';
+import '../../ui/screen_protection.dart';
 import '../../widgets/carte_widget.dart';
 import '../../widgets/map_marker.dart';
 
 class NavigationScreen extends StatefulWidget {
-  const NavigationScreen({super.key, required this.destination, this.nom});
+  const NavigationScreen({
+    super.key,
+    required this.destination,
+    this.nom,
+    this.protegerCapture = false,
+  });
 
   final LatLng destination;
   final String? nom;
+
+  /// Vrai quand le guidage concerne une adresse privée consultée par un
+  /// non-propriétaire : l'écran reste protégé même ouvert depuis un lien.
+  final bool protegerCapture;
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
@@ -203,30 +213,39 @@ class _NavigationScreenState extends State<NavigationScreen>
     return total;
   }
 
+  Widget _proteger(Widget ecran) => ScreenProtection(
+        enabled: widget.protegerCapture,
+        child: ecran,
+      );
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return _proteger(
+        const Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
     }
     if (_erreur != null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_erreur!, textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                AppButton.primary(
-                  onPressed: () => ouvrirNavigation(widget.destination),
-                  icon: Icons.map,
-                  label: 'Ouvrir dans Google Maps',
-                ),
-              ],
+      return _proteger(
+        Scaffold(
+          appBar: AppBar(),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_erreur!, textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  AppButton.primary(
+                    onPressed: () => ouvrirNavigation(widget.destination),
+                    icon: Icons.map,
+                    label: 'Ouvrir dans Google Maps',
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -242,149 +261,153 @@ class _NavigationScreenState extends State<NavigationScreen>
     final minutes = (dureeRestante / 60).ceil();
     final versManoeuvre = _dist.as(LengthUnit.Meter, _pos!, step.location);
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          CarteWidget(
-            centre: _pos!,
-            zoom: 17,
-            controller: _map,
-            polylines: [
-              Polyline(
-                points: route.points,
-                strokeWidth: 9,
-                color: Colors.white,
-              ),
-              Polyline(
-                points: route.points,
-                strokeWidth: 6,
-                color: AppColors.primary,
-              ),
-            ],
-            marqueurs: [
-              Marker(
-                point: widget.destination,
-                width: 40,
-                height: 40,
-                child: const AppMapMarker(
-                  icon: Icons.location_pin,
-                  color: AppColors.error,
-                  size: 32,
+    return _proteger(
+      Scaffold(
+        body: Stack(
+          children: [
+            CarteWidget(
+              centre: _pos!,
+              zoom: 17,
+              controller: _map,
+              polylines: [
+                Polyline(
+                  points: route.points,
+                  strokeWidth: 9,
+                  color: Colors.white,
                 ),
-              ),
-              Marker(
-                point: _pos!,
-                width: 40,
-                height: 40,
-                child: const AppMapMarker(
-                  icon: Icons.navigation,
+                Polyline(
+                  points: route.points,
+                  strokeWidth: 6,
                   color: AppColors.primary,
-                  size: 26,
+                ),
+              ],
+              marqueurs: [
+                Marker(
+                  point: widget.destination,
+                  width: 40,
+                  height: 40,
+                  child: const AppMapMarker(
+                    icon: Icons.location_pin,
+                    color: AppColors.error,
+                    size: 32,
+                  ),
+                ),
+                Marker(
+                  point: _pos!,
+                  width: 40,
+                  height: 40,
+                  child: const AppMapMarker(
+                    icon: Icons.navigation,
+                    color: AppColors.primary,
+                    size: 26,
+                  ),
+                ),
+              ],
+              onMapEvent: (event) {
+                if (event.source == MapEventSource.onDrag) {
+                  _camera.stop();
+                  if (_suivre) setState(() => _suivre = false);
+                }
+              },
+            ),
+
+            // Bannière : prochaine manœuvre
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Card(
+                  margin: const EdgeInsets.all(12),
+                  color: scheme.primaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.turn_right,
+                            size: 32, color: scheme.onPrimaryContainer),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: AppMotion.duree(
+                              context,
+                              const Duration(milliseconds: 150),
+                            ),
+                            switchInCurve: AppMotion.entree,
+                            switchOutCurve: AppMotion.sortie,
+                            child: Text(
+                              _arrived
+                                  ? 'Vous êtes arrivé'
+                                  : '${step.instruction}\ndans ${formatDistance(versManoeuvre)}',
+                              key: ValueKey(
+                                _arrived
+                                    ? 'arrive'
+                                    : '${_next}_${step.instruction}',
+                              ),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ],
-            onMapEvent: (event) {
-              if (event.source == MapEventSource.onDrag) {
-                _camera.stop();
-                if (_suivre) setState(() => _suivre = false);
-              }
-            },
-          ),
+            ),
 
-          // Bannière : prochaine manœuvre
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Card(
-                margin: const EdgeInsets.all(12),
-                color: scheme.primaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      Icon(Icons.turn_right,
-                          size: 32, color: scheme.onPrimaryContainer),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AnimatedSwitcher(
-                          duration: AppMotion.duree(
-                            context,
-                            const Duration(milliseconds: 150),
-                          ),
-                          switchInCurve: AppMotion.entree,
-                          switchOutCurve: AppMotion.sortie,
+            // Barre du bas : reste à parcourir + quitter
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SafeArea(
+                child: Card(
+                  margin: const EdgeInsets.all(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
                           child: Text(
                             _arrived
-                                ? 'Vous êtes arrivé'
-                                : '${step.instruction}\ndans ${formatDistance(versManoeuvre)}',
-                            key: ValueKey(
-                              _arrived ? 'arrive' : '${_next}_${step.instruction}',
-                            ),
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onPrimaryContainer,
-                            ),
+                                ? (widget.nom ?? 'Destination atteinte')
+                                : '${formatDistance(restante)} • $minutes min',
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Barre du bas : reste à parcourir + quitter
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: SafeArea(
-              child: Card(
-                margin: const EdgeInsets.all(12),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _arrived
-                              ? (widget.nom ?? 'Destination atteinte')
-                              : '${formatDistance(restante)} • $minutes min',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
+                        AppButton.tonal(
+                          onPressed: () => Navigator.of(context).pop(),
+                          label: _arrived ? 'Terminer' : 'Quitter',
+                          compact: true,
                         ),
-                      ),
-                      AppButton.tonal(
-                        onPressed: () => Navigator.of(context).pop(),
-                        label: _arrived ? 'Terminer' : 'Quitter',
-                        compact: true,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: _suivre
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(bottom: 80),
-              child: AppIconButton(
-                icon: Icons.my_location,
-                tooltip: 'Recentrer sur ma position',
-                elevated: true,
-                backgroundColor:
-                    scheme.surfaceContainerHigh.withValues(alpha: 0.94),
-                color: scheme.primary,
-                onPressed: () {
-                  setState(() => _suivre = true);
-                  _animateCameraTo(_pos!, 17);
-                },
+          ],
+        ),
+        floatingActionButton: _suivre
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(bottom: 80),
+                child: AppIconButton(
+                  icon: Icons.my_location,
+                  tooltip: 'Recentrer sur ma position',
+                  elevated: true,
+                  backgroundColor:
+                      scheme.surfaceContainerHigh.withValues(alpha: 0.94),
+                  color: scheme.primary,
+                  onPressed: () {
+                    setState(() => _suivre = true);
+                    _animateCameraTo(_pos!, 17);
+                  },
+                ),
               ),
-            ),
+      ),
     );
   }
 }

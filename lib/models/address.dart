@@ -14,12 +14,23 @@ extension AddressVisibilityX on AddressVisibility {
       v == 'PUBLIC' ? AddressVisibility.public : AddressVisibility.private;
 }
 
-class Address {
+/// Le minimum commun à une adresse complète et à une entrée « Partagées avec
+/// moi » pour décider si sa capture doit être bloquée.
+abstract class AdresseAvecVisibilite {
+  AddressVisibility get visibility;
+
+  /// Absent des liens partagés : la RPC peut fournir `is_owner` à la place.
+  String? get ownerId;
+}
+
+class Address implements AdresseAvecVisibilite {
   final String? id; // null tant que non enregistrée en base
+  @override
   final String ownerId;
   final String name;
   final String? description;
   final String? locality;
+  @override
   final AddressVisibility visibility;
   final double latitude;
   final double longitude;
@@ -40,6 +51,9 @@ class Address {
     this.photoUrl,
     this.createdAt,
   });
+
+  /// Vrai pour une adresse dont la visibilité est privée.
+  bool get estPrivee => visibility == AddressVisibility.private;
 
   factory Address.fromJson(Map<String, dynamic> json) => Address(
         id: json['id'] as String,

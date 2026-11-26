@@ -200,6 +200,7 @@ class _SharedLinkScreenState extends State<SharedLinkScreen> {
                       address: address,
                       landmarks: result.landmarks,
                       steps: result.steps,
+                      estProprietaireConfirmee: result.isOwner,
                     ),
                   ],
                 ),
