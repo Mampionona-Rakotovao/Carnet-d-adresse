@@ -43,7 +43,8 @@ void main() {
   testWidgets('la barre affiche les quatre libellés attendus', (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.light,
-      home: Scaffold(body: Center(child: SizedBox(width: 360, child: _barre()))),
+      home:
+          Scaffold(body: Center(child: SizedBox(width: 360, child: _barre()))),
     ));
     await tester.pumpAndSettle();
 
@@ -129,6 +130,9 @@ void main() {
     ]) {
       expect(find.text(entree), findsOneWidget, reason: 'entrée $entree');
     }
+    // La sortie se fait uniquement par le retour système : pas d'entrée
+    // « Quitter » dans le menu ⋮.
+    expect(find.text('Quitter l’application'), findsNothing);
     // Le menu s'ouvre juste sous l'AppBar (haut de l'écran), jamais au-dessus
     // de la barre flottante en bas.
     final premiereEntree = tester.getRect(find.text('Apparence'));

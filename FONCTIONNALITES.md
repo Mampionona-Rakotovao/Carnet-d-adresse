@@ -680,6 +680,17 @@
 - Cas limites gérés : compteur de références (plusieurs écrans empilés), sérialisation des appels natifs, `MissingPluginException`/`PlatformException` ignorés, reset au démarrage et à la déconnexion, visibilité absente traitée comme privée, `mounted` vérifié après les `await`.
 - Limites ou manques constatés : spécifique Android (iOS/web non concernés) ; les liens partagés ne renvoient pas `owner_id`, la décision s'appuie sur `is_owner`.
 
+#### F-054 · Confirmation de sortie / quitter l’application
+- Catégorie : Navigation et sécurité d’usage
+- Description : Empêche une sortie involontaire en demandant confirmation avant de fermer l'application lors d'un retour système sur une page principale.
+- Statut : ✅ Complète
+- Où l'utiliser : bouton retour du téléphone sur la dernière page des pages principales. Aucune entrée « Quitter » dans le menu ⋮.
+- Preuves : `lib/ui/confirmation_sortie.dart` (`ConfirmationSortie`, `showConfirmationSortie`, `quitterApplication`), `lib/ui/app_page.dart` (pages hors shell, dont la connexion), `lib/core/app_scaffold.dart` (onglets du shell, cible du retour système), `test/confirmation_sortie_test.dart`.
+- Données : aucune ; aucun état applicatif n’est modifié (pas de déconnexion).
+- Permissions et dépendances : aucune nouvelle dépendance ; `SystemNavigator.pop()` uniquement.
+- Cas limites gérés : retour normal préservé quand une page est empilée (`Navigator.canPop()`), un seul dialogue même en cas d’appuis rapides, annulation sans fermeture, confirmation via `SystemNavigator.pop()`, `mounted` vérifié après les `await`.
+- Limites ou manques constatés : sur iOS, « Quitter » reste une action inhabituelle ; le dialogue s’applique aussi au web où la fermeture dépend du navigateur.
+
 ## 4. Carte de l’application
 
 ### Routes `go_router` déclarées (`lib/core/router.dart`)

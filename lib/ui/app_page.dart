@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme/app_motion.dart';
+import 'confirmation_sortie.dart';
 
 /// Transition de page unique pour toute l'application : fondu + glissement
 /// vertical de 20 px, 250 ms, identique à l'aller et au retour.
@@ -10,7 +11,7 @@ CustomTransitionPage<void> appPage({
 }) {
   return CustomTransitionPage<void>(
     key: key,
-    child: child,
+    child: ConfirmationSortie(child: child),
     transitionDuration: AppMotion.page,
     reverseTransitionDuration: AppMotion.page,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {

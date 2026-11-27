@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../ui/app_bottom_nav.dart';
+import '../ui/confirmation_sortie.dart';
 import '../ui/icons/address_book_icon.dart';
 
 /// Enveloppe de navigation des écrans racine.
@@ -23,6 +24,10 @@ import '../ui/icons/address_book_icon.dart';
 /// pas pour le clavier. Les `Scaffold` des écrans gardent ainsi la main sur
 /// leur propre contenu, et la barre — dans le body, pas dans un slot — voit
 /// les `viewInsets` et se masque d'elle-même quand le clavier est ouvert.
+///
+/// Le shell porte aussi [ConfirmationSortie] : le retour système s'adresse
+/// au navigateur racine, donc la protection placée dans chaque page d'onglet
+/// ne suffit pas à empêcher une fermeture directe.
 class AppScaffold extends StatelessWidget {
   const AppScaffold({super.key, required this.child});
 
@@ -104,24 +109,29 @@ class AppScaffold extends StatelessWidget {
     // faire glisser sa bulle.
     _ongletPrecedent = currentIndex;
 
-    return Scaffold(
-      // Le contenu défile jusqu'en bas de l'écran, derrière la barre
-      // flottante posée par-dessus.
-      extendBody: true,
-      // Voir la doc de classe : le clavier est géré par les écrans, la
-      // barre se masque d'elle-même.
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        // La bulle de l'onglet actif et l'ombre de la barre dépassent
-        // légèrement le cadre : jamais rognées.
-        clipBehavior: Clip.none,
-        children: [
-          child,
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: bar,
-          ),
-        ],
+    // Le shell est la seule page du navigateur racine. Sans cette enveloppe,
+    // le retour système cible ce navigateur (et non celui des onglets) et
+    // ferme l'application sans demander confirmation.
+    return ConfirmationSortie(
+      child: Scaffold(
+        // Le contenu défile jusqu'en bas de l'écran, derrière la barre
+        // flottante posée par-dessus.
+        extendBody: true,
+        // Voir la doc de classe : le clavier est géré par les écrans, la
+        // barre se masque d'elle-même.
+        resizeToAvoidBottomInset: false,
+        body: Stack(
+          // La bulle de l'onglet actif et l'ombre de la barre dépassent
+          // légèrement le cadre : jamais rognées.
+          clipBehavior: Clip.none,
+          children: [
+            child,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: bar,
+            ),
+          ],
+        ),
       ),
     );
   }

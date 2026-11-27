@@ -192,10 +192,41 @@ const List<HelpArticle> helpArticles = [
       'presentation',
       'creer-adresse',
       'apparence',
-      'partagees-avec-moi'
+      'partagees-avec-moi',
+      'quitter-application'
     ],
     openLabel: 'Ouvrir Mes adresses',
     openRoute: '/',
+  ),
+  HelpArticle(
+    id: 'quitter-application',
+    categorie: HelpCategory.demarrer,
+    titre: 'Quitter l’application',
+    motsCles: [
+      'quitter',
+      'quitter application',
+      'fermer',
+      'fermer application',
+      'sortie',
+      'sortir',
+      'retour',
+      'bouton retour',
+      'confirmation',
+    ],
+    resume:
+        'Une confirmation évite de fermer le carnet à cause d’un retour ou d’un appui involontaire.',
+    etapes: [
+      'Appuyez sur le bouton retour du téléphone depuis la page ouverte.',
+      'Le message « Quitter l’application ? » s’affiche.',
+      'Appuyez sur « Annuler » pour rester dans le carnet.',
+      'Appuyez sur « Quitter » seulement si vous voulez vraiment fermer l’application.',
+    ],
+    astuces: [
+      'La confirmation s’affiche sur la page de connexion et sur tous les onglets principaux.',
+      'Depuis une fiche ou un formulaire, le retour revient à la page précédente sans demander confirmation.',
+      'Quitter l’application ne vous déconnecte pas : votre session reste enregistrée.',
+    ],
+    articlesLies: ['accueil', 'deconnexion'],
   ),
   HelpArticle(
     id: 'bienvenue',
@@ -1556,6 +1587,8 @@ const List<HelpArticle> helpArticles = [
       'déconnecter',
       'deconnecter',
       'quitter',
+      'quitter application',
+      'fermer application',
       'compte',
       'supprimer compte',
     ],
@@ -1570,8 +1603,9 @@ const List<HelpArticle> helpArticles = [
     astuces: [
       'La déconnexion ne supprime pas vos adresses.',
       'L\'application ne propose pas encore de suppression de compte.',
+      'Le bouton retour du téléphone demande confirmation avant de fermer l’application, sans vous déconnecter.',
     ],
-    articlesLies: ['connexion', 'accueil'],
+    articlesLies: ['connexion', 'accueil', 'quitter-application'],
   ),
 
   // -------------------------------------------------------------------------

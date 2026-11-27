@@ -107,7 +107,15 @@ dans le presse-papiers et un message le signale à l’utilisateur.
 - Plusieurs écrans peuvent empiler la protection (fiche, repère, guidage) grâce
   à un compteur de références ; la protection est retirée au dernier écran, au
   redémarrage et à la déconnexion.
-- iPhone, navigateur et adresses publiques ne sont pas concernés.
+- Sur la dernière page, le bouton retour du téléphone ouvre une confirmation
+  « Quitter l’application ? » au lieu de fermer immédiatement, y compris sur les
+  onglets principaux (le retour système cible le navigateur racine, protégé par
+  le shell). Annuler ramène au carnet ; une page empilée (fiche, formulaire,
+  guidage) revient normalement en arrière. Le menu ⋮ ne propose pas de bouton
+  « Quitter ».
+- iPhone, navigateur et adresses publiques ne sont pas concernés par la
+  protection des captures ; la confirmation de sortie s’applique à toutes les
+  plateformes.
 
 ## Tests et analyse statique
 
